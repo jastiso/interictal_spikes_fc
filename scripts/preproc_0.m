@@ -1,11 +1,12 @@
 clear
 clc
 close all
+warning ON
 
 %%
 
 % global variables and packages
-top_dir = '/Users/stiso/Documents/RAM/';
+top_dir = 'smb://bassett-data.seas.upenn.edu/bassett-data/Jeni/RAM/';
 eval(['cd ', top_dir])
 
 % for removing electrodes
@@ -13,7 +14,7 @@ thr = 1.5;
 releases = ['1', '2', '3'];
 
 for r = 1:numel(releases)
-    release = releases(1);
+    release = releases(r);
     
     release_dir = [top_dir, 'release', release '/'];
     eval(['cd ', release_dir '/protocols'])
@@ -44,6 +45,12 @@ for r = 1:numel(releases)
         for s = 1:numel(subjects)
             subj = subjects{s};
             
+            % save command window
+            clc
+            eval(['diary ', [top_dir, 'processed/release',release, '/', protocol, '/', subj, '/log.txt']]);
+            
+            fprintf('******************************************\nStarting preprocessing for subject %s...\n', subj)
+            
             % get experiements
             eval(['experiments = fields(info.subjects.' subj, '.experiments);'])
             for e = 1:numel(experiments)
@@ -58,10 +65,7 @@ for r = 1:numel(releases)
                     
                     eval(['curr_info = info.subjects.' subj, '.experiments.' exper, '.sessions.x', sess, ';'])
                     
-                    fprintf('Starting preprocessing for subject %s...\n', subj)
-                    fprintf('Experiment %s session %s\n\n', exper, sess)
-                    
-                    % folders
+                     % folders
                     raw_dir = [release_dir, 'protocols/', protocol, '/subjects/', subj, '/experiments/', exper, '/sessions/', sess, '/ephys/current_processed/'];
                     save_dir = [top_dir, 'processed/release',release, '/', protocol, '/', subj, '/', exper, '/', sess, '/'];
                     img_dir = [top_dir, 'img/diagnostics/release',release, '/', protocol, '/', subj, '/', exper, '/', sess, '/'];
@@ -71,7 +75,9 @@ for r = 1:numel(releases)
                     if ~exist(save_dir, 'dir')
                         mkdir(save_dir);
                     end
-                    
+
+                    fprintf('\nExperiment %s session %s\n\n', exper, sess)
+
                     %% get channel info
                     
                     % get file info struct
@@ -104,49 +110,122 @@ for r = 1:numel(releases)
                     str = char(raw');
                     fclose(fid);
                     val = jsondecode(str);
-                    % reformat
-                    date = fields(val);
-                    date_ext = strsplit(date{1}, {subj, exper, [sess, '_']});
-                    date_ext = date_ext{end};
-                    eval(['header = val.', subj, '_', exper '_', sess, '_', date_ext, ';'])
                     
+                    % get event info
+                    if isfield(curr_info, 'all_events')
+                        fid = fopen([release_dir, curr_info.all_events]);
+                    else % some only have task events
+                        fid = fopen([release_dir, curr_info.task_events]);
+                    end
+                    raw = fread(fid);
+                    events = jsondecode(char(raw'));
+                    eegfile = unique({events.eegfile});
+                    eegfile = eegfile(cellfun(@(x) ~isempty(x), eegfile));
+
+                    % check that there's only one file per session
+                    if numel(eegfile) > 1
+                       error('This session has multiple eegfiles') 
+                    end
+                    eval(['header = val.', eegfile{1} ';'])
                     
                     % get data
-                    data_raw = zeros(nChan, header.n_samples-1);
-                    for i = 1:nChan
-                        chan = sprintf('%03d', chann_idx(i));
-                        fid = fopen([raw_dir, 'noreref/', subj, '_', exper '_', sess, '_', date_ext, '.', chan]);
-                        data_raw(i,:) = fread(fid,  header.n_samples, header.data_format)';
-                        fclose(fid);
+                    try
+                        data_raw = zeros(nChan, header.n_samples-1);
+                        for i = 1:nChan
+                            chan = sprintf('%03d', chann_idx(i));
+                            fid = fopen([raw_dir, 'noreref/', eegfile{1}, '.', chan]);
+                            data_raw(i,:) = fread(fid, header.n_samples, header.data_format)';
+                            fclose(fid);
+                        end
+                    catch
+                        % sometimes the size of the file and header.n_samples
+                        % don't match. If that is the case, keep the file
+                        % format listed, and just don't specify a size. also
+                        % print a warning
+                        warning('The number of samples indicated inthe header and actual number of samples at the given precision do not match')
+                        
+                        data_raw = [];
+                        for i = 1:nChan
+                            chan = sprintf('%03d', chann_idx(i));
+                            fid = fopen([raw_dir, 'noreref/', eegfile{1}, '.', chan]);
+                            data_raw(i,:) = fread(fid, inf, header.data_format)';
+                            fclose(fid);
+                        end
+                        fprintf('Updating header\n')
+                        header.n_samples = size(data_raw,2);
                     end
+                    
                     
                     %% Epoch?
                     
-                    % get event info
-                    fid = fopen([release_dir, curr_info.all_events]);
-                    raw = fread(fid);
-                    events = jsondecode(char(raw'));
-                    
                     % get pre and post task data
-                    data = cell(2,1);
-                    start_idx = find(strcmpi('sess_start', {events.type}));
-                    end_idx = find(strcmpi('sess_end', {events.type}));
-                    data{1} = data_raw(:, 1:(events(start_idx).eegoffset - 1));
-                    data{2} = data_raw(:, (events(end_idx).eegoffset + 1):end);
+                    data = [];
+                    
+                    switch exper(1:end-1)
+                        case {'FR', 'CatFR', 'PAL'}
+                            start_idx = find(strcmpi('sess_start', {events.type}));
+                            end_idx = find(strcmpi('sess_end', {events.type}));
 
+                        case {'YC', 'TH'}
+                            % these tasks don't have "sess_start" and end,
+                            % so we are just going to lok for the first and
+                            % last task event (when eegoffset is greater
+                            % than 0)
+                            start_idx = find([events.eegoffset] > 1, 1);
+                            end_idx = find([events.eegoffset] > 1, 1, 'last');
+                    end
+                    
+                    % make sure there is enough data, and that the
+                    % event was recorded
+                    if ~isempty(start_idx)
+                        if numel(1:(events(start_idx).eegoffset - 1)) > 1000
+                            data{1} = data_raw(:, 1:(events(start_idx).eegoffset - 1));
+                            fprintf('%d samples of pre-task data\n', (events(start_idx).eegoffset - 1))
+                        else
+                            fprintf('0 samples of pre-task data\n')
+                        end
+                    else
+                        fprintf('0 samples of pre-task data\n')
+                    end
+                    
+                    
+                    % now the post task data
+                    if ~isempty(end_idx)
+                        if numel(data) > 0
+                            if numel((events(end_idx).eegoffset + 1):header.n_samples) > 1000
+                                data{2} = data_raw(:, (events(end_idx).eegoffset + 1):end);
+                                fprintf('%d samples of post-task data\n', numel((events(end_idx).eegoffset + 1):header.n_samples))
+                            else
+                                fprintf('0 samples of post-task data\n')
+                            end
+                        else % is no start data, index at 1
+                            if numel((events(end_idx).eegoffset + 1):header.n_samples) > 1000
+                                data{1} = data_raw(:, (events(end_idx).eegoffset + 1):end);
+                                fprintf('%d samples of post-task data\n', numel((events(end_idx).eegoffset + 1):header.n_samples))
+                            else
+                                fprintf('0 samples of post-task data\n')
+                            end
+                        end
+                    else
+                        fprintf('0 samples of post-task data\n')
+                    end
+                 
                     
                     %% Filter
-                    fprintf('Filtering...')
+                    fprintf('\nFiltering...')
                     
                     for j = 1:numel(data)
                         
                         % filter out 60 Hz harmonics
+                        fprintf('60...')
                         [b,a] = butter(4, [59/(header.sample_rate/2), 61/(header.sample_rate/2)], 'stop');
                         data{j} = filtfilt(b,a,data{j}')';
                         
+                        fprintf('120...')
                         [b,a] = butter(4, [119/(header.sample_rate/2), 121/(header.sample_rate/2)], 'stop');
                         data{j} = filtfilt(b,a,data{j}')';
                         
+                        fprintf('180...')
                         [b,a] = butter(4, [179/(header.sample_rate/2), 181/(header.sample_rate/2)], 'stop');
                         data{j} = filtfilt(b,a,data{j}')';
                     end
@@ -204,8 +283,19 @@ for r = 1:numel(releases)
                         fft_plot(data{j}', 1000, header.sample_rate);
                         saveas(gca, [img_dir, 'preCAR_FFT_', num2str(j), '.png'], 'png')
                         
-                        eegplot(data{j}, 'srate', header.sample_rate, 'winlength', dur);
-                        saveas(gca, [img_dir, 'preCAR_LFP_', num2str(j), '.png'], 'png')
+                        cnt = 1;
+                        ext = 1;
+                        while cnt < dur
+                            if (cnt+(100*header.sample_rate)-1) > dur
+                                eegplot(data{j}(:, cnt:end), 'srate', header.sample_rate,  "winlength", 100);
+                                saveas(gca, [img_dir, 'preCAR_LFP_', num2str(j), '_', num2str(ext), '.png'], 'png')
+                            else
+                                eegplot(data{j}(:, cnt:(cnt+(100*header.sample_rate)-1)), 'srate', header.sample_rate,  "winlength", 100);
+                                saveas(gca, [img_dir, 'preCAR_LFP_', num2str(j), '_', num2str(ext), '.png'], 'png')
+                            end
+                            cnt = cnt + 100*header.sample_rate;
+                            ext = ext + 1;
+                        end
                         close all
                     end
                     
@@ -222,14 +312,27 @@ for r = 1:numel(releases)
                         data{j} = get_CAR(data{j}, labels); % CAR by group
                         
                         fprintf('Finished CAR!\n')
-                        dur = size(data{j},2)/header.sample_rate; % duration for plotting
+                        dur = size(data{j},2); % duration for plotting in samples
                         figure(2); clf;
                         fft_plot(data{j}', 1000, header.sample_rate);
                         saveas(gca, [img_dir, 'postCAR_FFT_', num2str(j), '.png'], 'png')
                         
-                        eegplot(data{j}, 'srate', header.sample_rate,  "winlength", dur);
-                        saveas(gca, [img_dir, 'postCAR_LFP_', num2str(j), '.png'], 'png')
+                        % plot chunks of 100s
+                        cnt = 1;
+                        ext = 1;
+                        while cnt < dur
+                            if (cnt+(100*header.sample_rate)-1) > dur
+                                eegplot(data{j}(:, cnt:end), 'srate', header.sample_rate,  "winlength", 100);
+                                saveas(gca, [img_dir, 'postCAR_LFP_', num2str(j), '_', num2str(ext), '.png'], 'png')
+                            else
+                                eegplot(data{j}(:, cnt:(cnt+(100*header.sample_rate)-1)), 'srate', header.sample_rate,  "winlength", 100);
+                                saveas(gca, [img_dir, 'postCAR_LFP_', num2str(j), '_', num2str(ext), '.png'], 'png')
+                            end
+                            cnt = cnt + 100*header.sample_rate;
+                            ext = ext + 1;
+                        end
                         close all
+                        
                     end
                     
                     % save data
@@ -243,6 +346,7 @@ for r = 1:numel(releases)
                     save([save_dir, 'header.mat'], 'header')
                 end
             end
+            diary off
         end
     end
 end
