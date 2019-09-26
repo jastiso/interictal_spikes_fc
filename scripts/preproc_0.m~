@@ -91,6 +91,11 @@ for r = 1:numel(releases)
                     %% get channel info
                     
                     try
+                        A = rand(3);
+                        B = ones(5);
+                        
+                        C = [A; B];
+                        
                         % get file info struct
                         fid = fopen([release_dir, curr_info.contacts]);
                         raw = fread(fid);
@@ -377,7 +382,7 @@ for r = 1:numel(releases)
                         
                     catch ME
                         errors(end+1).files = [subj, '_', exper, '_', sess];
-                        errors(end).message = ME.message;
+                        errors(end+1).message = ME.message;
                     end
                 end
             end
@@ -385,7 +390,3 @@ for r = 1:numel(releases)
         end
     end
 end
-
-% remove empty entry
-errors = errors(2:end);
-save([top_dir, 'errors.mat'], 'errors');
