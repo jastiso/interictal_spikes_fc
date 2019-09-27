@@ -1,13 +1,6 @@
 clear
 clc
-close all
-warning ON
-
-addpath(genpath('/Users/stiso/Documents/Code/interictal_spikes_fc/'))
-addpath(genpath('/Users/stiso/Documents/MATLAB/eeglab_current/'))
-addpath('/Users/stiso/Documents/MATLAB/fieldtrip-20170830/')
-
-%%
+close
 
 % global variables and packages
 top_dir = '/Volumes/bassett-data/Jeni/RAM/';
@@ -20,7 +13,7 @@ releases = ['1', '2', '3'];
 % for catching errors
 errors = struct('files', [], 'message', []);
 
-for r = 1:numel(releases)
+for r = 1%:numel(releases)
     release = releases(r);
     
     release_dir = [top_dir, 'release', release '/'];
@@ -31,7 +24,7 @@ for r = 1:numel(releases)
     folders = {folders([folders.isdir]).name};
     protocols = folders(cellfun(@(x) ~contains(x, '.'), folders));
     
-    for p = 1:numel(protocols)
+    for p = 1%:numel(protocols)
         protocol = protocols{p};
         
         % get global info struct
@@ -49,7 +42,7 @@ for r = 1:numel(releases)
         
         % get subjects
         subjects = fields(info.subjects);
-        for s = 1:numel(subjects)
+        for s = 1%:numel(subjects)
             subj = subjects{s};
             
             % save command window
@@ -63,12 +56,12 @@ for r = 1:numel(releases)
             
             % get experiements
             eval(['experiments = fields(info.subjects.' subj, '.experiments);'])
-            for e = 1:numel(experiments)
+            for e = 1%:numel(experiments)
                 exper = experiments{e};
                 
                 % get seesions
                 eval(['sessions = fields(info.subjects.' subj, '.experiments.', exper, '.sessions);'])
-                for n = 1:numel(sessions)
+                for n = 1%:numel(sessions)
                     sess = sessions{n};
                     sess = strsplit(sess, 'x');
                     sess = sess{end};
@@ -90,93 +83,85 @@ for r = 1:numel(releases)
                     
                     %% get channel info
                     
+                    % get file info struct
+                    fid = fopen([release_dir, curr_info.contacts]);
+                    raw = fread(fid);
+                    channel_info = jsondecode(char(raw'));
+                    code = fields(channel_info); % sometimes this doen't match subject
+                    eval(['channel_info = channel_info.',  code{1}, ';'])
+                    fclose(fid);
+                    
+                    % get numbers
+                    labels = fields(channel_info.contacts);
+                    nChan = numel(labels);
+                    chann_idx = zeros(nChan, 1);
+                    for i = 1:numel(labels)
+                        chann = labels{i};
+                        eval(['chann_idx(i) = channel_info.contacts.', chann, '.channel;'])
+                    end
+                    % sort
+                    [chann_idx, sort_idx] = sort(chann_idx, 'ascend');
+                    labels = labels(sort_idx);
+                    
+                    
+                    %% Get data
+                    
+                    % get header
+                    fname = [raw_dir, 'sources.json'];
+                    fid = fopen(fname);
+                    raw = fread(fid,inf);
+                    str = char(raw');
+                    fclose(fid);
+                    val = jsondecode(str);
+                    
+                    % get event info
+                    if isfield(curr_info, 'all_events')
+                        fid = fopen([release_dir, curr_info.all_events]);
+                    else % some only have task events
+                        fid = fopen([release_dir, curr_info.task_events]);
+                    end
+                    raw = fread(fid);
+                    events = jsondecode(char(raw'));
+                    eegfile = unique({events.eegfile});
+                    eegfile = eegfile(cellfun(@(x) ~isempty(x), eegfile));
+                    
+                    % check that there's only one file per session
+                    if numel(eegfile) > 1
+                        error('This session has multiple eegfiles')
+                    end
                     try
-                        A = rand(3);
-                        B = ones(5);
-                        
-                        C = [A; B];
-                        
-                        % get file info struct
-                        fid = fopen([release_dir, curr_info.contacts]);
-                        raw = fread(fid);
-                        channel_info = jsondecode(char(raw'));
-                        code = fields(channel_info); % sometimes this doen't match subject
-                        eval(['channel_info = channel_info.',  code{1}, ';'])
-                        fclose(fid);
-                        
-                        % get numbers
-                        labels = fields(channel_info.contacts);
-                        nChan = numel(labels);
-                        chann_idx = zeros(nChan, 1);
-                        for i = 1:numel(labels)
-                            chann = labels{i};
-                            eval(['chann_idx(i) = channel_info.contacts.', chann, '.channel;'])
+                        eval(['header = val.', eegfile{1} ';'])
+                    catch % sometimes the eegfile is wrong
+                        warning('The eegfile in events does not match the eegfile in the data')
+                        eegfile = fields(val);
+                        eval(['header = val.', eegfile{1} ';'])
+                    end
+                    
+                    % get data
+                    try
+                        data_raw = zeros(nChan, header.n_samples-1);
+                        for i = 1:nChan
+                            chan = sprintf('%03d', chann_idx(i));
+                            fid = fopen([raw_dir, 'noreref/', eegfile{1}, '.', chan]);
+                            data_raw(i,:) = fread(fid, header.n_samples, header.data_format)';
+                            fclose(fid);
                         end
-                        % sort
-                        [chann_idx, sort_idx] = sort(chann_idx, 'ascend');
-                        labels = labels(sort_idx);
+                    catch
+                        % sometimes the size of the file and header.n_samples
+                        % don't match. If that is the case, keep the file
+                        % format listed, and just don't specify a size. also
+                        % print a warning
+                        warning('The number of samples indicated inthe header and actual number of samples at the given precision do not match')
                         
-                        
-                        %% Get data
-                        
-                        % get header
-                        fname = [raw_dir, 'sources.json'];
-                        fid = fopen(fname);
-                        raw = fread(fid,inf);
-                        str = char(raw');
-                        fclose(fid);
-                        val = jsondecode(str);
-                        
-                        % get event info
-                        if isfield(curr_info, 'all_events')
-                            fid = fopen([release_dir, curr_info.all_events]);
-                        else % some only have task events
-                            fid = fopen([release_dir, curr_info.task_events]);
+                        data_raw = [];
+                        for i = 1:nChan
+                            chan = sprintf('%03d', chann_idx(i));
+                            fid = fopen([raw_dir, 'noreref/', eegfile{1}, '.', chan]);
+                            data_raw(i,:) = fread(fid, inf, header.data_format)';
+                            fclose(fid);
                         end
-                        raw = fread(fid);
-                        events = jsondecode(char(raw'));
-                        eegfile = unique({events.eegfile});
-                        eegfile = eegfile(cellfun(@(x) ~isempty(x), eegfile));
-                        
-                        % check that there's only one file per session
-                        if numel(eegfile) > 1
-                            error('This session has multiple eegfiles')
-                        end
-                        try
-                            eval(['header = val.', eegfile{1} ';'])
-                        catch % sometimes the eegfile is wrong
-                            warning('The eegfile in events does not match the eegfile in the data')
-                            eegfile = fields(val);
-                            eval(['header = val.', eegfile{1} ';'])
-                        end
-                        
-                        % get data
-                        try
-                            data_raw = zeros(nChan, header.n_samples-1);
-                            for i = 1:nChan
-                                chan = sprintf('%03d', chann_idx(i));
-                                fid = fopen([raw_dir, 'noreref/', eegfile{1}, '.', chan]);
-                                data_raw(i,:) = fread(fid, header.n_samples, header.data_format)';
-                                fclose(fid);
-                            end
-                        catch
-                            % sometimes the size of the file and header.n_samples
-                            % don't match. If that is the case, keep the file
-                            % format listed, and just don't specify a size. also
-                            % print a warning
-                            warning('The number of samples indicated inthe header and actual number of samples at the given precision do not match')
-                            
-                            data_raw = [];
-                            for i = 1:nChan
-                                chan = sprintf('%03d', chann_idx(i));
-                                fid = fopen([raw_dir, 'noreref/', eegfile{1}, '.', chan]);
-                                data_raw(i,:) = fread(fid, inf, header.data_format)';
-                                fclose(fid);
-                            end
-                            fprintf('Updating header\n')
-                            header.n_samples = size(data_raw,2);
-                        end
-                        
+                        fprintf('Updating header\n')
+                        header.n_samples = size(data_raw,2);
                         
                         %% Epoch?
                         
@@ -257,6 +242,15 @@ for r = 1:numel(releases)
                             fprintf('180...')
                             [b,a] = butter(4, [179/(header.sample_rate/2), 181/(header.sample_rate/2)], 'stop');
                             data{j} = filtfilt(b,a,data{j}')';
+                            
+                            % wide bandpass
+                            %                             fprintf('High Pass...')
+                            %                             [b,a] = butter(4, [0.1/(header.sample_rate/2)], 'high');
+                            %                             data{j} = filtfilt(b,a,data{j}')';
+                            %
+                            %                             fprintf('Low Pass...')
+                            %                             [b,a] = butter(4, [200/(header.sample_rate/2)], 'low');
+                            %                             data{j} = filtfilt(b,a,data{j}')';
                         end
                         
                         fprintf(' done!\n\n')
@@ -275,12 +269,12 @@ for r = 1:numel(releases)
                         end
                         elec_cats = elec_cats{1}(~cellfun('isempty',elec_cats{1}));
                         % split by categories
-                        soz_ind = find(cell2mat(cellfun(@(x) contains('seizure onset',x), elec_cats, 'UniformOutput', false)));
-                        interictal_ind = find(cell2mat(cellfun(@(x) contains('interictal spikes',x), elec_cats, 'UniformOutput', false)));
-                        bad_contact_ind = find(cell2mat(cellfun(@(x) contains('bad electrodes',x), elec_cats, 'UniformOutput', false)));
+                        soz_ind = find(cell2mat(cellfun(@(x) contains(lower(x), 'seizure onset'), elec_cats, 'UniformOutput', false)));
+                        interictal_ind = find(cell2mat(cellfun(@(x) contains(lower(x), 'interictal spikes'), elec_cats, 'UniformOutput', false)));
+                        bad_contact_ind = find(cell2mat(cellfun(@(x) contains(lower(x), 'bad electrodes'), elec_cats, 'UniformOutput', false)));
                         % check size
-                        if (numel(soz_ind) > 1 || numel(interictal_ind) > 1 || numel(bad_contact_ind) > 1)
-                            error('Something wen wrong with parsing the electrode categories');
+                        if (numel(soz_ind) ~= 1 || numel(interictal_ind) ~= 1 || numel(bad_contact_ind) ~= 1)
+                            error('Something went wrong with parsing the electrode categories');
                         end
                         soz = elec_cats((soz_ind + 1):(interictal_ind - 1));
                         ict_spike = elec_cats((interictal_ind + 1):(bad_contact_ind - 1));
@@ -369,24 +363,44 @@ for r = 1:numel(releases)
                             close all
                             
                         end
-                        
-                        % save data
-                        %save([save_dir, 'data_clean.mat'], 'data')
-                        
-                        %% Spikes
-                        
-                        
-                        
-                        % save other things
-                        save([save_dir, 'header.mat'], 'header')
-                        
-                    catch ME
-                        errors(end+1).files = [subj, '_', exper, '_', sess];
-                        errors(end+1).message = ME.message;
                     end
                 end
             end
-            diary off
         end
     end
 end
+%%
+
+[out,MARKER,envelope,background,discharges,envelope_pdf] = spike_detector_hilbert_v16_byISARG(data{2}', header.sample_rate);
+
+%% Plot
+
+l = 2000;
+for i = 1:numel(chann_idx)
+    curr = i;
+    
+    st = find(MARKER.M(:,curr) ~= 0);
+    if ~isempty(st)
+        st = st(1);
+        st = st - 100;
+    else
+        st = 1;
+    end
+    
+    figure(1); clf
+    %set(gcf, 'Units', 'Normalized', 'OuterPosition', [0, 0.04, 1, 0.96]);
+    subplot(2,1,1)
+    plot(1:numel(st:(st+l)), MARKER.d(st:(st+l),curr), 'linewidth', 1.5); hold on
+    plot(find(MARKER.M(st:(st+l),curr) ~= 0), MARKER.d(MARKER.M(st:(st+l),curr) ~= 0,curr), 'rx', 'linewidth', 2)
+    title('Voltage')
+    xlim([1,l])
+    subplot(2,1,2)
+    plot(1:numel(st:(st+l)), envelope(st:(st+l),curr), 'linewidth', 1.5); hold on
+    plot(find(MARKER.M(st:(st+l),curr) ~= 0), envelope(MARKER.M(st:(st+l),curr) ~= 0,curr), 'rx', 'linewidth', 2)
+    title('Envelope')
+    xlim([1,l])
+    hold off
+    pause(0.5)
+    %saveas(gca, [top_dir, 'img/spike_examples/',num2str(i),'.png'], 'png')
+end
+

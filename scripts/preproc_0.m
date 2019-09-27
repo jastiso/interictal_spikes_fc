@@ -270,12 +270,12 @@ for r = 1:numel(releases)
                         end
                         elec_cats = elec_cats{1}(~cellfun('isempty',elec_cats{1}));
                         % split by categories
-                        soz_ind = find(cell2mat(cellfun(@(x) contains('seizure onset',x), elec_cats, 'UniformOutput', false)));
-                        interictal_ind = find(cell2mat(cellfun(@(x) contains('interictal spikes',x), elec_cats, 'UniformOutput', false)));
-                        bad_contact_ind = find(cell2mat(cellfun(@(x) contains('bad electrodes',x), elec_cats, 'UniformOutput', false)));
+                        soz_ind = find(cell2mat(cellfun(@(x) contains(lower(x), 'seizure onset'), elec_cats, 'UniformOutput', false)));
+                        interictal_ind = find(cell2mat(cellfun(@(x) contains(lower(x), 'interictal spikes'), elec_cats, 'UniformOutput', false)));
+                        bad_contact_ind = find(cell2mat(cellfun(@(x) contains(lower(x), 'bad electrodes'), elec_cats, 'UniformOutput', false)));
                         % check size
-                        if (numel(soz_ind) > 1 || numel(interictal_ind) > 1 || numel(bad_contact_ind) > 1)
-                            error('Something wen wrong with parsing the electrode categories');
+                        if (numel(soz_ind) ~= 1 || numel(interictal_ind) ~= 1 || numel(bad_contact_ind) ~= 1)
+                            error('Something went wrong with parsing the electrode categories');
                         end
                         soz = elec_cats((soz_ind + 1):(interictal_ind - 1));
                         ict_spike = elec_cats((interictal_ind + 1):(bad_contact_ind - 1));

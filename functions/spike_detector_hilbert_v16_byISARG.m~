@@ -36,7 +36,7 @@ function [out,MARKER,envelope,background,discharges,envelope_pdf]=spike_detector
 %               analyse. High value with combination of parallel computing, 
 %               many analyzed channels is memory-comsuming. Minimaly 10x 
 %               winsize time is recomended. ('-buf 300' DEFAULT)
-%   -h main_hum_freq ... main hum frequency in Hz ('-h 60' DEFAULT)
+%   -h main_hum_freq ... main hum frequency in Hz ('-h 50' DEFAULT)
 %   -b low hrequency boundary of beta activity detection beta-25 Hz ('-b 15' recomended)
 %       Inf - beta-activity detector off ('-b Inf' DEFAULT)
 %   -bw length of tested segment on beta-activity in second
@@ -93,7 +93,7 @@ k2=[]; % (-k2)
 winsize=5*fs;   % (-w)
 noverlap=4*fs;  % (-n)
 buffering=300; % (-buf)
-main_hum_freq=60; % (-h)
+main_hum_freq=50; % (-h)
 beta=Inf;    % (-b)
 beta_win=20; % (-bw)
 beta_AR=12; % (-br)
