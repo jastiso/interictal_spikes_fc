@@ -49,7 +49,7 @@ for r = 2%:numel(releases)
         
         % get subjects
         subjects = fields(info.subjects);
-        for s = 11%:numel(subjects)
+        for s = 81%:numel(subjects)
             subj = subjects{s};
             
             % save command window
@@ -63,7 +63,7 @@ for r = 2%:numel(releases)
             
             % get experiements
             eval(['experiments = fields(info.subjects.' subj, '.experiments);'])
-            for e = 3%1:numel(experiments)
+            for e = 2%1:numel(experiments)
                 exper = experiments{e};
                 
                 % get seesions
