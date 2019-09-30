@@ -19,6 +19,7 @@ releases = ['1', '2', '3'];
 
 % for catching errors
 %errors = struct('files', [], 'message', []);
+warnings = stract('files', [], 'message', []);
 
 for r = 2%:numel(releases)
     release = releases(r);
@@ -49,7 +50,7 @@ for r = 2%:numel(releases)
         
         % get subjects
         subjects = fields(info.subjects);
-        for s = 81%:numel(subjects)
+        for s = 11%:numel(subjects)
             subj = subjects{s};
             
             % save command window
@@ -63,7 +64,7 @@ for r = 2%:numel(releases)
             
             % get experiements
             eval(['experiments = fields(info.subjects.' subj, '.experiments);'])
-            for e = 2%1:numel(experiments)
+            for e = 3%1:numel(experiments)
                 exper = experiments{e};
                 
                 % get seesions
@@ -137,17 +138,9 @@ for r = 2%:numel(releases)
                             nChan = numel(labels);
                         end
                         
-                        %% Get data
+                        %% Get event info
                         
-                        % get header
-                        fname = [raw_dir, 'sources.json'];
-                        fid = fopen(fname);
-                        raw = fread(fid,inf);
-                        str = char(raw');
-                        fclose(fid);
-                        val = jsondecode(str);
-                        
-                        % get event info
+                         % load event info
                         if isfield(curr_info, 'all_events')
                             fid = fopen([release_dir, curr_info.all_events]);
                         else % some only have task events
@@ -155,50 +148,6 @@ for r = 2%:numel(releases)
                         end
                         raw = fread(fid);
                         events = jsondecode(char(raw'));
-                        eegfile = unique({events.eegfile});
-                        eegfile = eegfile(cellfun(@(x) ~isempty(x), eegfile));
-                        
-                        % check that there's only one file per session
-                        if numel(eegfile) > 1
-                            error('This session has multiple eegfiles')
-                        end
-                        try
-                            eval(['header = val.', eegfile{1} ';'])
-                        catch % sometimes the eegfile is wrong
-                            warning('The eegfile in events does not match the eegfile in the data')
-                            eegfile = fields(val);
-                            eval(['header = val.', eegfile{1} ';'])
-                        end
-                        
-                        % get data
-                        try
-                            data_raw = zeros(nChan, header.n_samples-1);
-                            for i = 1:nChan
-                                chan = sprintf('%03d', chann_idx(i));
-                                fid = fopen([raw_dir, 'noreref/', eegfile{1}, '.', chan]);
-                                data_raw(i,:) = fread(fid, header.n_samples, header.data_format)';
-                                fclose(fid);
-                            end
-                        catch
-                            % sometimes the size of the file and header.n_samples
-                            % don't match. If that is the case, keep the file
-                            % format listed, and just don't specify a size. also
-                            % print a warning
-                            warning('The number of samples indicated in the header and actual number of samples at the given precision do not match')
-                            
-                            data_raw = [];
-                            for i = 1:nChan
-                                chan = sprintf('%03d', chann_idx(i));
-                                fid = fopen([raw_dir, 'noreref/', eegfile{1}, '.', chan]);
-                                data_raw(i,:) = fread(fid, inf, header.data_format)';
-                                fclose(fid);
-                            end
-                            fprintf('Updating header\n')
-                            header.n_samples = size(data_raw,2);
-                        end
-                        
-                        
-                        %% Epoch?
                         
                         % get pre and post task data
                         data = [];
@@ -227,6 +176,77 @@ for r = 2%:numel(releases)
                         % make flags for pre and post task data
                         pretask = ~isempty(start_idx) && numel(1:(events(start_idx).eegoffset - 1)) > 1000;
                         posttask = ~isempty(end_idx) && numel((events(end_idx).eegoffset + 1):header.n_samples) > 1000 && events(end_idx).eegoffset > 0;
+                        
+                        % get eegfiles for pre and post task data
+                        if pretask && posttask
+                            pre_eeg = events(start_idx).eegfile;
+                            post_eeg = events(end_idx).eegfile;
+                            if strcmp(pre_eeg, post_eeg)
+                                eegfile = pre_eeg;
+                            else
+                                % check that there's only one file per session
+                                warning('This session has multiple eegfiles')
+                                warnings(end+1).files = [subj, '_', exper, '_', sess];
+                                warnings(end).message = 'This session has multiple eegfiles';
+                            end
+                        elseif pretask
+                            pre_eeg = events(start_idx).eegfile;
+                            eegfile = pre_eeg;
+                        elseif posttask
+                            post_eeg = events(end_idx).eegfile;
+                            eegfile = post_eeg;
+                        end
+                        
+                        %% Get data
+                        
+                        % get header
+                        fname = [raw_dir, 'sources.json'];
+                        fid = fopen(fname);
+                        raw = fread(fid,inf);
+                        str = char(raw');
+                        fclose(fid);
+                        val = jsondecode(str);
+                        
+                        try
+                            eval(['header = val.', eegfile ';'])
+                        catch % sometimes the eegfile is wrong...should I skip these cases?
+                            warning('The eegfile in events does not match the eegfile in the data')
+                            warnings(end+1).files = [subj, '_', exper, '_', sess];
+                            warnings(end).message = 'The eegfile in events does not match the eegfile in the data';
+                                
+                            eegfile = fields(val);
+                            eval(['header = val.', eegfile ';'])
+                        end
+                        
+                        % get data
+                        try
+                            data_raw = zeros(nChan, header.n_samples-1);
+                            for i = 1:nChan
+                                chan = sprintf('%03d', chann_idx(i));
+                                fid = fopen([raw_dir, 'noreref/', eegfile, '.', chan]);
+                                data_raw(i,:) = fread(fid, header.n_samples, header.data_format)';
+                                fclose(fid);
+                            end
+                        catch
+                            % sometimes the size of the file and header.n_samples
+                            % don't match. If that is the case, keep the file
+                            % format listed, and just don't specify a size. also
+                            % print a warning
+                            warning('The number of samples indicated in the header and actual number of samples at the given precision do not match')
+                            
+                            data_raw = [];
+                            for i = 1:nChan
+                                chan = sprintf('%03d', chann_idx(i));
+                                fid = fopen([raw_dir, 'noreref/', eegfile, '.', chan]);
+                                data_raw(i,:) = fread(fid, inf, header.data_format)';
+                                fclose(fid);
+                            end
+                            fprintf('Updating header\n')
+                            header.n_samples = size(data_raw,2);
+                        end
+                        
+                        
+                        %% Epoch?
                         
                         % make sure there is enough data, and that the
                         % event was recorded
