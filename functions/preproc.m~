@@ -274,25 +274,23 @@ bad_contact_ind = find(cell2mat(cellfun(@(x) ... % this one is complicated, some
 % check size - this is only a warning because some sites don't list SOZ,
 % and some subjects don't have bad elecs marked...presumably because the
 % recording was good. However this might also happen if something went
-% wrong with the parsing
+% wrong with the pars
 if (numel(soz_ind) ~= 1 || numel(interictal_ind) ~= 1 || numel(bad_contact_ind) < 1)
-    warning('Something went wrong with parsing the electrode categories, or this subject is missing categories.');
-    warnings(end+1).files = [subj, '_', exper, '_', sess];
-    warnings(end).message = 'Something went wrong with parsing the electrode categories, or this subject is missing categories.';
+    warning('Something went wrong with parsing the electrode categories');
 end
 
-% get contact names for each category
+% get contacts
 soz = elec_cats((soz_ind + 1):(interictal_ind - 1));
 interictal_cont = elec_cats((interictal_ind + 1):(bad_contact_ind - 1));
 bad_cont = elec_cats((bad_contact_ind(1) + 1):end);
-% remove empty categories and category names for bad electrodes
+% remove empty categories and category names
 bad_cont(cell2mat(cellfun(@(x) ...
     contains(lower(x), 'none') | contains(lower(x), 'bad') | contains(lower(x), 'broken') | contains(lower(x), 'lesion'),...
     bad_cont, 'UniformOutput', false))) = [];
 
 
-% check that the order didn't get messed up - these sums should be the same
-if (numel(soz_ind) + numel(interictal_ind) + numel(bad_contact_ind) + numel(soz) + numel(interictal_cont) + numel(bad_cont)) == (numel(elec_cats) - 1) % accounting for subj at the beginning
+% check that the order didn't get messed up
+if (numel(soz_ind) + numel(interictal_ind) + numel(bad_contact_ind) + numel(soz) + numel(interictal_cont) + numel(bad_cont)) > (numel(elec_cats) - 1) % accounting for subj at the beginning
     error('The order of electrodes categories on this subject was messed up')
 end
 
@@ -304,10 +302,7 @@ end
 chann_idx = chann_idx(~bad_cont_idx);
 ft_data.label = ft_data.label(~bad_cont_idx);
 
-
-% additional checking with my own algorthim. This will pick up elecs that
-% are only bad during this particular chunk of recording. Also I don't know
-% what their rejection criteria were. these are fairly strict
+% additional checking
 fprintf('Removing contacts with kurtosis, or power greater than %d standard deviations above average, or line length greater than 3x the mean...', thr)
 % get bad elecs across either session
 rmv = false(size(ft_data.label));
@@ -322,9 +317,9 @@ ft_data.label = ft_data.label(~rmv);
 
 fprintf('done!\nRemoved %d contacts\n\n', sum(rmv))
 
-% make some plots pre CAR - if something looks really weird might be best to
+% make some plots pre CAR - if something looks weird might be best to
 % remove this subject, because the extra noise will have affected the car
-% (unless noise is local to specific electrode/grids)
+% (unless noise is local to electrode/grids)
 for j = 1:nTrial
     dur = size(ft_data.trial{j},2)/header.sample_rate; % duration for plotting
     
@@ -387,6 +382,5 @@ end
 % save data and other things
 save([save_dir, 'data_clean.mat'], 'ft_data')
 save([save_dir, 'header.mat'], 'header')
-
 end
 

@@ -21,7 +21,7 @@ releases = ['1', '2', '3'];
 errors = struct('files', [], 'message', []);
 warnings = struct('files', [], 'message', []);
 
-for r = 1:numel(releases)
+for r = 2:numel(releases)
     release = releases(r);
     
     release_dir = [top_dir, 'release', release '/'];
@@ -74,13 +74,13 @@ for r = 1:numel(releases)
                     sess = strsplit(sess, 'x');
                     sess = sess{end};
 
-                    try
+                    %try
                         warnings = preproc(thr, release_dir, info, metadata_dir, top_dir, release, protocol, subj, exper, sess, warnings);
                         
-                     catch ME
+                    % catch ME
                          errors(end+1).files = [subj, '_', exper, '_', sess];
                          errors(end).message = ME.message;
-                     end
+                     %end
                 end
             end
             diary off
