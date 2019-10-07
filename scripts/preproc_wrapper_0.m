@@ -1,3 +1,7 @@
+%% Prprocess RAM data
+% ~300 subjects, for a total of 1073 sessions of data.
+% This script saves cleaned task-free data for each session
+
 clear
 clc
 close all
@@ -17,79 +21,25 @@ eval(['cd ', top_dir])
 thr = 1.5;
 releases = ['1', '2', '3'];
 
-% for catching errors
-errors = struct('files', [], 'message', []);
-warnings = struct('files', [], 'message', []);
-
-for r = 2:numel(releases)
+parfor r = 1:numel(releases)
     release = releases(r);
     
     release_dir = [top_dir, 'release', release '/'];
-    eval(['cd ', release_dir '/protocols'])
+    
+    % for catching errors
+    errors = struct('files', [], 'message', []);
+    warnings = struct('files', [], 'message', []);
     
     % remove parent and hidden directories, then get protocols
-    folders = dir(pwd);
+    folders = dir([release_dir '/protocols']);
     folders = {folders([folders.isdir]).name};
     protocols = folders(cellfun(@(x) ~contains(x, '.'), folders));
-    
-    for p = 1:numel(protocols)
-        protocol = protocols{p};
-        
-        % get global info struct
-        fname = [protocol, '.json'];
-        fid = fopen(fname);
-        raw = fread(fid);
-        str = char(raw');
-        fclose(fid);
-        info = jsondecode(str);
-        eval(['info = info.protocols.', protocol,';']);
-        
-        % directories
-        metadata_dir = dir([top_dir, 'release', release '/Release_Metadata*']);
-        metadata_dir = [top_dir, 'release', release '/', metadata_dir.name, '/'];
-        
-        % get subjects
-        subjects = fields(info.subjects);
-        for s = 1:numel(subjects)
-            subj = subjects{s};
-            
-            % save command window
-            clc
-            if ~exist([top_dir, 'processed/release',release, '/', protocol, '/', subj, '/'], 'dir')
-                mkdir([top_dir, 'processed/release',release, '/', protocol, '/', subj, '/']);
-            end
-            eval(['diary ', [top_dir, 'processed/release',release, '/', protocol, '/', subj, '/log.txt']]);
-            
-            fprintf('******************************************\nStarting preprocessing for subject %s...\n', subj)
-            
-            % get experiements
-            eval(['experiments = fields(info.subjects.' subj, '.experiments);'])
-            for e = 1:numel(experiments)
-                exper = experiments{e};
-                
-                % get seesions
-                eval(['sessions = fields(info.subjects.' subj, '.experiments.', exper, '.sessions);'])
-                for n = 1:numel(sessions)
-                    sess = sessions{n};
-                    sess = strsplit(sess, 'x');
-                    sess = sess{end};
 
-                    %try
-                        warnings = preproc(thr, release_dir, info, metadata_dir, top_dir, release, protocol, subj, exper, sess, warnings);
-                        
-                    % catch ME
-                         errors(end+1).files = [subj, '_', exper, '_', sess];
-                         errors(end).message = ME.message;
-                     %end
-                end
-            end
-            diary off
-        end
-    end
+    % main preprocessing function
+    preproc(thr, release_dir, top_dir, release, protocols, warnings, errors);
+
 end
 
-% remove empty entry
-errors = errors(2:end);
-warnings = warnings(2:end);
-save([top_dir, 'errors.mat'], 'errors');
-save([top_dir, 'warnings.mat'], 'warnings');
+% get and concatenate errors and warnings
+
+
