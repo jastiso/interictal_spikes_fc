@@ -8,7 +8,6 @@ close all
 warning ON
 
 addpath(genpath('/Users/stiso/Documents/Code/interictal_spikes_fc/'))
-addpath(genpath('/Users/stiso/Documents/MATLAB/eeglab_current/'))
 addpath('/Users/stiso/Documents/MATLAB/fieldtrip-20170830/')
 
 %%

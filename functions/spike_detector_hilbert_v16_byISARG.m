@@ -11,7 +11,7 @@ function [out,MARKER,envelope,background,discharges,envelope_pdf]=spike_detector
 % _________________________________________________________________________
 % recomended calling:
 % [...]=spike_detector_hilbert_v16_byISARG(d,fs);
-% 
+%
 % or
 % [...]=spike_detector_hilbert_v16_byISARG(d,fs,settings);
 % _________________________________________________________________________
@@ -25,16 +25,16 @@ function [out,MARKER,envelope,background,discharges,envelope_pdf]=spike_detector
 %   -bh high frequency of filtering ('-bl 10' DEFAULT)
 %   -ft filter type: 1-Chebyshev II, 2-Butterworth, 3-FIR ('-ft 1' DEFAULT)
 %   -k1 threshold value for obvious spike decision ('-k1 3' DEFAULT)
-%   -k2 defines ambiguous spike treshold. Ambiguous 
-%       spike is accepted, when simultaneous obvious detection is in other 
-%       channel k1 > k2 (not used in DEFAULT) 
+%   -k2 defines ambiguous spike treshold. Ambiguous
+%       spike is accepted, when simultaneous obvious detection is in other
+%       channel k1 > k2 (not used in DEFAULT)
 %   -w winsize - size of segment in sample around spike for background
 %                   definition (5*fs DEFAULT)
 %   -n noverlap - overlap of segment in sample or absolute (novelap=0.9 ~ 90%)
 %                   (4*fs DEFAULT)
 %   -buf buffer ... value in second of length subsection of signal for batch
-%               analyse. High value with combination of parallel computing, 
-%               many analyzed channels is memory-comsuming. Minimaly 10x 
+%               analyse. High value with combination of parallel computing,
+%               many analyzed channels is memory-comsuming. Minimaly 10x
 %               winsize time is recomended. ('-buf 300' DEFAULT)
 %   -h main_hum_freq ... main hum frequency in Hz ('-h 60' DEFAULT)
 %   -b low hrequency boundary of beta activity detection beta-25 Hz ('-b 15' recomended)
@@ -45,38 +45,38 @@ function [out,MARKER,envelope,background,discharges,envelope_pdf]=spike_detector
 %   -pt polyspike union time: spike in same channel nearest then time will
 %        be united
 %
-%         
+%
 %
 % outputs:-----------------------------------------------------------------
 % MARKER.d ... resampled signal "d" to 200 Hz
 % MARKER.fs ... new sampling frequency
-% MARKER.M ... zero matrix with same size as signal "d", where 1 indicate 
-%              obviuos spike, 0.5 ambiguous 
+% MARKER.M ... zero matrix with same size as signal "d", where 1 indicate
+%              obviuos spike, 0.5 ambiguous
 % envelope ... instant hilbert envelope of filtered signal "d"
 % background ... threshold curves with same size as signal "d"
 %               background(:,:,1) ... for high threshold (k~k1)
 %               background(:,:,2) ... for low threshol (k~k2)
 % disharges ... structure of multichannel event describes occurence of
-%               spikes suddenly 
-%           discharges.MV ... matrix of type (n x ch) 
+%               spikes suddenly
+%           discharges.MV ... matrix of type (n x ch)
 %                             (1-obvious spike, 0.5-ambiguous)
-%           discharges.MA ... matrix of max. amplitude of envelope above 
+%           discharges.MA ... matrix of max. amplitude of envelope above
 %                             backround (n x ch)
-%           discharges.MP ... start position of multichannel event 
+%           discharges.MP ... start position of multichannel event
 %           discharges.MD ... duration of event
 %           discharges.MW ... statistical significance "CDF"
 %           discharges.MPDF ... probability of occurence
 % out ... structure describing each detected spike. Usefull for export to
 %         GDF files using biosig toolbox (biosig.sourceforge.net)
 %           out.pos ... position (second)
-%           out.dur ... duration (second) - fixed 1/fs 
+%           out.dur ... duration (second) - fixed 1/fs
 %           out.chan ... channel
 %           out.con ... type (1-obvious 0.5-ambiguous)
 %           out.weight ... statistical significance "CDF"
 %           out.pdf ... statistical significance "PDF"
 %
 % required toolboxes:
-%   Signal Processing Toolbox, Statistic Toolbox, 
+%   Signal Processing Toolbox, Statistic Toolbox,
 %
 % recomended toolboxes:
 %   Parallel Computing Toolbox
@@ -101,12 +101,12 @@ f_type=1; % 1-cheby2, 2-but, 3-fir (-ft)
 discharge_tol=0.005; % (-dt)
 polyspike_uniom_time=0.12; % (-pt)
 
-if nargin>2; 
+if nargin>2;
     poz=strfind(settings,'  '); % multi spaces removing
     settings(poz)=[];
     SET=textscan(settings,'%s %f','delimiter',' '); % paremeters reading
-else    
-    SET{1,1}=[]; 
+else
+    SET{1,1}=[];
 end
 
 
@@ -197,7 +197,7 @@ out.pdf=[]; % spike probability "PDF"
 discharges.MV=[]; % spike type 1-obvious, 0.5- ambiguous
 discharges.MA=[]; % max. amplitude of envelope above backround
 discharges.MP=[]; % event start position
-discharges.MD=[]; % event duration 
+discharges.MD=[]; % event duration
 discharges.MW=[]; % statistical weight
 discharges.MPDF=[]; % statistical weight
 
@@ -223,17 +223,17 @@ for i=1:length(index_stop)
     
     if ~isempty(sub_out.pos)
         if length(index_stop)>1
- 
-%             if i==1
-%                 idx_evt=sub_out.pos>T_seg;
-%                 idx_disch=sub_discharges.MP(:,1)>T_seg;
-%             elseif i>1 && i<length(index_stop)
-%                 idx_evt=sub_out.pos<=(3*winsize)/fs | sub_out.pos>T_seg+(3*winsize)/fs;
-%                 idx_disch=sub_discharges.MP(:,1)<=(3*winsize)/fs | sub_discharges.MP(:,1)>T_seg+(3*winsize)/fs;
-%             elseif i==length(index_stop)
-%                 idx_evt=sub_out.pos<=(3*winsize)/fs;
-%                 idx_disch=sub_discharges.MP(:,1)<=(3*winsize)/fs;
-%             end
+            
+            %             if i==1
+            %                 idx_evt=sub_out.pos>T_seg;
+            %                 idx_disch=sub_discharges.MP(:,1)>T_seg;
+            %             elseif i>1 && i<length(index_stop)
+            %                 idx_evt=sub_out.pos<=(3*winsize)/fs | sub_out.pos>T_seg+(3*winsize)/fs;
+            %                 idx_disch=sub_discharges.MP(:,1)<=(3*winsize)/fs | sub_discharges.MP(:,1)>T_seg+(3*winsize)/fs;
+            %             elseif i==length(index_stop)
+            %                 idx_evt=sub_out.pos<=(3*winsize)/fs;
+            %                 idx_disch=sub_discharges.MP(:,1)<=(3*winsize)/fs;
+            %             end
             
             idx_evt=sub_out.pos<((i>1)*(3*winsize)/fs) | sub_out.pos>((index_stop(i)-index_start(i))-(i<length(index_stop))*(3*winsize))/fs;
             idx_disch=min(sub_discharges.MP,[],2)<((i>1)*(3*winsize)/fs) | min(sub_discharges.MP,[],2)>((index_stop(i)-index_start(i))-(i<length(index_stop))*(3*winsize))/fs;
@@ -296,18 +296,11 @@ end
 df=filtering(bandwidth,d,fs,f_type);
 df=filt50Hz(df,fs,main_hum_freq);
 
-if exist('parfor')==5 % If you don't have "Parallel Computing Toolbox", only standard for-cycle will be performed
-        
-    parfor ch=1:size(df,2)
-        [envelope(:,ch),markers_high(:,ch),markers_low(:,ch),background(:,ch,:),envelope_cdf(:,ch),envelope_pdf(:,ch)]=one_channel_detect(df(:,ch),fs,index,winsize,k1,k2,polyspike_uniom_time); % ~ = prah_int(:,ch,:)
-    end
-    
-else % If you do not have "Parallel Computing Toolbox", only standard for-cycle will be performed
-        
-    for ch=1:size(df,2)
-        [envelope(:,ch),markers_high(:,ch),markers_low(:,ch),background(:,ch,:),envelope_cdf(:,ch),envelope_pdf(:,ch)]=one_channel_detect(df(:,ch),fs,index,winsize,k1,k2,polyspike_uniom_time); % ~ = prah_int(:,ch,:)
-    end  
+
+for ch=1:size(df,2)
+    [envelope(:,ch),markers_high(:,ch),markers_low(:,ch),background(:,ch,:),envelope_cdf(:,ch),envelope_pdf(:,ch)]=one_channel_detect(df(:,ch),fs,index,winsize,k1,k2,polyspike_uniom_time); % ~ = prah_int(:,ch,:)
 end
+
 
 % first and last second is not analyzed (filter time response etc.)
 markers_high([1:fs, end-fs+1:end],:)=false;
@@ -355,7 +348,7 @@ if ~(k2==k1)
                     continue
                 elseif sum(ovious_M(round(idx(i)-0.01*fs:idx(i)-0.01*fs)))>0
                     out.pos=[out.pos; idx(i)/fs];
-%                     out.dur=[out.dur; 1/fs];
+                    %                     out.dur=[out.dur; 1/fs];
                     out.dur=[out.dur; t_dur]; %
                     out.chan=[out.chan; ch];
                     out.con=[out.con; 0.5];
@@ -387,7 +380,7 @@ point(:,2)=find(diff([(sum(M,2))>0;0])<0);
 discharges.MV=[]; % spike type 1-obvious, 0.5- ambiguous
 discharges.MA=[]; % max. amplitude of envelope above backround
 discharges.MP=[]; % event start position
-discharges.MD=[]; % event duration 
+discharges.MD=[]; % event duration
 discharges.MW=[]; % statistical weight
 discharges.MPDF=[]; % statistical weight
 
@@ -395,13 +388,13 @@ for k=1:size(point,1)
     seg=M(point(k,1):point(k,2),:);
     mv=max(seg,[],1);
     
-%     seg=df(point(k,1):point(k,2),:);
+    %     seg=df(point(k,1):point(k,2),:);
     seg=envelope(point(k,1):point(k,2),:)-(background(point(k,1):point(k,2),:,1)/k1);
     ma=max(abs(seg),[],1);
     
-%     seg=1-envelope_pdf(point(k,1):point(k,2),:);
+    %     seg=1-envelope_pdf(point(k,1):point(k,2),:);
     seg=envelope_cdf(point(k,1):point(k,2),:);
-%     mw=max(seg.*(M(point(k,1):point(k,2),:)>0),[],1);
+    %     mw=max(seg.*(M(point(k,1):point(k,2),:)>0),[],1);
     mw=max(seg,[],1);
     
     seg=envelope_pdf(point(k,1):point(k,2),:);
@@ -442,7 +435,7 @@ if nargin<3
 end
 
 if min(size(d))==1
-   d=d(:); 
+    d=d(:);
 end
 
 R = 1; r = 0.985;
@@ -494,17 +487,12 @@ switch type
 end
 
 
-if exist('parfor')==5 % If you don't have "Parallel Computing Toolbox", only standard for-cycle will be performed
-    parfor ch=1:size(d,2); df(:,ch)=filtfilt(bh,ah,d(:,ch)); end
-    if bandwidth(2)==fs/2; return; end
-    parfor ch=1:size(d,2); df(:,ch)=filtfilt(bl,al,df(:,ch)); end
-    
-else % If you do not have "Parallel Computing Toolbox", only standard for-cycle will be performed
-    for ch=1:size(d,2); df(:,ch)=filtfilt(bh,ah,d(:,ch)); end
-    if bandwidth(2)==fs/2; return; end
-    for ch=1:size(d,2); df(:,ch)=filtfilt(bl,al,df(:,ch)); end
-    
-end
+% If you do not have "Parallel Computing Toolbox", only standard for-cycle will be performed
+for ch=1:size(d,2); df(:,ch)=filtfilt(bh,ah,d(:,ch)); end
+if bandwidth(2)==fs/2; return; end
+for ch=1:size(d,2); df(:,ch)=filtfilt(bl,al,df(:,ch)); end
+
+
 end
 
 %--------------------------------------------------------------------
@@ -518,11 +506,11 @@ for k=1:length(index) % for each segment
     segment=envelope(index(k):index(k)+winsize-1);
     segment(segment<=0)=[];
     
-    % estimation of segment's distribution using MLE 
-%     [phat(k,:),~] = mle(segment(:)','distribution','logn'); % paremeters estimation 
+    % estimation of segment's distribution using MLE
+    %     [phat(k,:),~] = mle(segment(:)','distribution','logn'); % paremeters estimation
     phat(k,1)=mean(log(segment)); % median
     phat(k,2)=std(log(segment));
-%     
+    %
 end
 
 r=size(envelope,1)/length(index);
@@ -539,7 +527,7 @@ if size(phat,1)>1
     phat_int(:,1) = interp1(index+round(winsize/2),phat(:,1),(index(1):index(end))+round(winsize/2),'spline');
     phat_int(:,2) = interp1(index+round(winsize/2),phat(:,2),(index(1):index(end))+round(winsize/2),'spline');
     
-    phat_int=[ones(floor(winsize/2),size(phat,2)).*repmat(phat_int(1,:),floor(winsize/2),1); phat_int ; ones(size(envelope,1)-(length(phat_int)+floor(winsize/2)),size(phat,2)).*repmat(phat_int(end,:),size(envelope,1)-(length(phat_int)+floor(winsize/2)),1)];   
+    phat_int=[ones(floor(winsize/2),size(phat,2)).*repmat(phat_int(1,:),floor(winsize/2),1); phat_int ; ones(size(envelope,1)-(length(phat_int)+floor(winsize/2)),size(phat,2)).*repmat(phat_int(end,:),size(envelope,1)-(length(phat_int)+floor(winsize/2)),1)];
 else
     phat_int=phat.*ones(size(d,1),2);
 end
@@ -587,7 +575,7 @@ for k=1:size(point,1)
     if point(k,2)-point(k,1)>2
         seg=envelope(point(k,1):point(k,2));
         seg_s=diff(seg);
-        seg_s=sign(seg_s); 
+        seg_s=sign(seg_s);
         seg_s=find(diff([0;seg_s])<0); % positions of local maxima in the section
         
         marker1(point(k,1)+seg_s-1)=true;
@@ -628,8 +616,8 @@ end
 
 % finding of the highes maxima of the section with local maxima
 point=[];
-point(:,1)=find(diff([0;marker1])>0); % start 
-point(:,2)=find(diff([marker1;0])<0); % end 
+point(:,1)=find(diff([0;marker1])>0); % start
+point(:,2)=find(diff([marker1;0])<0); % end
 
 % local maxima with gradient in souroundings
 for k=1:size(point,1)
@@ -650,29 +638,29 @@ end
 % for k=1:size(point,1)
 %     if point(k,2)-point(k,1)>1
 %         lokal_max=pointer(pointer>=point(k,1) & pointer<=point(k,2)); % index of local maxima
-%         
+%
 %         marker1(point(k,1):point(k,2))=false;
-%         
+%
 %         lokal_max_val=envelope(lokal_max); % envelope magnitude in local maxima
 %         lokal_max(lokal_max_val<0.50*max(lokal_max_val))=[];
 %         lokal_max_val=envelope(lokal_max);
-%         
-%         
+%
+%
 %         lokal_max_poz=(diff(sign(diff([0;lokal_max_val;0]))<0)>0);
-%         
-%         
-%         
-%         
+%
+%
+%
+%
 %         marker1(lokal_max(lokal_max_poz))=true;
 %     end
 % end
 
-% % local maxima 
+% % local maxima
 % for k=1:size(point,1)
 %     if point(k,2)-point(k,1)>1
 %         [~,max_poz]=max(envelope(point(k,1):point(k,2)));
 %         marker1(point(k,1):point(k,2))=false;
-%         
+%
 %         marker1(point(k,1)+max_poz-1)=true;
 %     end
 % end
@@ -689,15 +677,15 @@ noverlap=round(0.5*winsize);
 
 index=1:winsize-noverlap:size(d,1)-winsize+1;
 if isempty(index)
-   index=1;
-   winsize=size(d,2);
+    index=1;
+    winsize=size(d,2);
 end
 
 [bb,aa]=butter(4,2*30/fs);
-parfor ch=1:size(d,2)
+for ch=1:size(d,2)
     MM=[];
-%     winsize=5*fs;
-%     noverlap=2.5*fs;
+    %     winsize=5*fs;
+    %     noverlap=2.5*fs;
     
     for i=1:length(index)
         seg=d(index(i):index(i)+winsize-1,ch);
