@@ -47,11 +47,10 @@ for r = 1:numel(releases)
     release = releases(r);
     release_dir = [top_dir, 'release', release '/'];
     
-    curr_err = load([release_dir, 'errors.mat']);
-    curr_warn = load([release_dir, 'warnings.mat']);
+    curr = load([release_d
     
-    errors_all= [errors_all, curr_err.errors];
-    warnings_all = [warnings_all, curr_warn.warnings];
+    errors_all(end:end+numel(curr)) = curr;
+    warnigs_all(end:end+numel(curr)) = curr;
 end
 save([top_dir, 'errors.mat'], 'errors_all')
 save([top_dir, 'warnings.mat'], 'warnings_all')

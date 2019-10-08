@@ -401,7 +401,7 @@ for p = 1:numel(protocols)
                         ext = 1;
                         while cnt < dur
                             if (cnt+(100*header.sample_rate)-1) > dur
-                                eegplot(ft_data.trial{j}(:, cnt:end), 'srate', header.sample_rate,  "winlength", 100);
+                                plot_lfp(ft_data.trial{j}(:, cnt:end), header.sample_rate,  "winlength", 100);
                                 saveas(gcf, [img_dir, 'preCAR_LFP_', num2str(j), '_', num2str(ext), '.png'], 'png')
                             else
                                 eegplot(ft_data.trial{j}(:, cnt:(cnt+(100*header.sample_rate)-1)), 'srate', header.sample_rate,  "winlength", 100);
@@ -431,20 +431,20 @@ for p = 1:numel(protocols)
                         fft_plot(ft_data.trial{j}', 1000, header.sample_rate);
                         saveas(gcf, [img_dir, 'postCAR_FFT_', num2str(j), '.png'], 'png')
                         
-                        % plot chunks of 100s
-                        cnt = 1;
-                        ext = 1;
-                        while cnt < dur
-                            if (cnt+(100*header.sample_rate)-1) > dur
-                                eegplot(ft_data.trial{j}(:, cnt:end), 'srate', header.sample_rate,  "winlength", 100);
-                                saveas(gcf, [img_dir, 'postCAR_LFP_', num2str(j), '_', num2str(ext), '.png'], 'png')
-                            else
-                                eegplot(ft_data.trial{j}(:, cnt:(cnt+(100*header.sample_rate)-1)), 'srate', header.sample_rate,  "winlength", 100);
-                                saveas(gcf, [img_dir, 'postCAR_LFP_', num2str(j), '_', num2str(ext), '.png'], 'png')
-                            end
-                            cnt = cnt + 100*header.sample_rate;
-                            ext = ext + 1;
-                        end
+                        %                                             % plot chunks of 100s
+                        %                                             cnt = 1;
+                        %                                             ext = 1;
+                        %                                             while cnt < dur
+                        %                                                 if (cnt+(100*header.sample_rate)-1) > dur
+                        %                                                     eegplot(ft_data.trial{j}(:, cnt:end), 'srate', header.sample_rate,  "winlength", 100);
+                        %                                                     saveas(gcf, [img_dir, 'postCAR_LFP_', num2str(j), '_', num2str(ext), '.png'], 'png')
+                        %                                                 else
+                        %                                                     eegplot(ft_data.trial{j}(:, cnt:(cnt+(100*header.sample_rate)-1)), 'srate', header.sample_rate,  "winlength", 100);
+                        %                                                     saveas(gcf, [img_dir, 'postCAR_LFP_', num2str(j), '_', num2str(ext), '.png'], 'png')
+                        %                                                 end
+                        %                                                 cnt = cnt + 100*header.sample_rate;
+                        %                                                 ext = ext + 1;
+                        %                                             end
                         close all
                         
                     end
