@@ -93,7 +93,8 @@ for r = 1:numel(releases)
                         nChan = numel(ft_data.label);
                         
                         if isempty(all_soz)
-                            warning('The 
+                            warning('The interictal and SOZ channels were not marked for this subject')
+                        end
                         
                         nTrial = numel(ft_data.trial);
                         for j = 1:nTrial
@@ -119,9 +120,14 @@ for r = 1:numel(releases)
                                         win_spike = (out.pos > curr_pos & out.pos < curr_pos + win);
                                         win_chan = out.chan(win_spike);
                                         
-                                        if sum(intersect(win_chan,all_soz)) >= min_chan
-                                            kept_spike(win_spike) = true;
-                                            print(num2str(i))
+                                        if ~isempty(soz)
+                                            if sum(intersect(win_chan,all_soz)) >= min_chan
+                                                kept_spike(win_spike) = true;
+                                            end
+                                        else
+                                            if sum(unique(win_chan)) >= min_chan+1 % if not SOZ marked have slightly stricter cutoff
+                                                kept_spike(win_spike) = true;
+                                            end
                                         end
                                     end
                                 end
@@ -135,7 +141,7 @@ for r = 1:numel(releases)
                                 % get new M
                                 m_clean = zeros(size(MARKER.M));
                                 for i=1:size(out_clean.pos,1)
-                                    m_clean(round(out_clean.pos(i)*MARKER.fs:out.pos(i)*MARKER.fs+discharge_tol*MARKER.fs),...
+                                    m_clean(round(out_clean.pos(i)*MARKER.fs),...
                                         out_clean.chan(i))=out_clean.con(i);
                                 end
                                 MARKER.m_clean = m_clean;

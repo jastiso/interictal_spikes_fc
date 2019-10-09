@@ -141,7 +141,7 @@ for r = 1:numel(releases)
                                 % get new M
                                 m_clean = zeros(size(MARKER.M));
                                 for i=1:size(out_clean.pos,1)
-                                    m_clean(round(out_clean.pos(i)*MARKER.fs:out.pos(i)*MARKER.fs+discharge_tol*MARKER.fs),...
+                                    m_clean(round(out_clean.pos(i)*MARKER.fs:out_clean.pos(i)*MARKER.fs+discharge_tol*MARKER.fs),...
                                         out_clean.chan(i))=out_clean.con(i);
                                 end
                                 MARKER.m_clean = m_clean;
