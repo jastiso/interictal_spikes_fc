@@ -92,6 +92,10 @@ for r = 1:numel(releases)
                         all_soz = unique([cell2mat(cellfun(@(x) find(strcmpi(x, ft_data.label)), soz, 'UniformOutput', false)); cell2mat(cellfun(@(x) find(strcmpi(x, ft_data.label)), interictal_cont, 'UniformOutput', false))]);
                         nChan = numel(ft_data.label);
                         
+                        if isempty(all_soz)
+                            warning('The interictal and SOZ channels were not marked for this subject')
+                        end
+                        
                         nTrial = numel(ft_data.trial);
                         for j = 1:nTrial
                             % run detection alg
@@ -116,8 +120,14 @@ for r = 1:numel(releases)
                                         win_spike = (out.pos > curr_pos & out.pos < curr_pos + win);
                                         win_chan = out.chan(win_spike);
                                         
-                                        if sum(intersect(win_chan,all_soz)) >= min_chan
-                                            kept_spike(win_spike) = true;
+                                        if ~isempty(soz)
+                                            if sum(intersect(win_chan,all_soz)) >= min_chan
+                                                kept_spike(win_spike) = true;
+                                            end
+                                        else
+                                            if sum(unique(win_chan)) >= min_chan+1 % if not SOZ marked have slightly stricter cutoff
+                                                kept_spike(win_spike) = true;
+                                            end
                                         end
                                     end
                                 end

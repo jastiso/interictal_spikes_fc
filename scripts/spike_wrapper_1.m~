@@ -17,8 +17,12 @@ eval(['cd ', top_dir])
 
 % parameters for eliminated spikes
 min_chan = 3; % minimum number of channels that need to be recruited
-win = 0.2; % size of the window to look for the minimum number of channels, in seconds
+win = 0.15; % size of the window to look for the minimum number of channels, in seconds
 releases = ['1', '2', '3'];
+discharge_tol=0.005; % taken from spike function
+n_spikes = [];
+% for catching errors
+errors = struct('files', [], 'message', []);
 
 for r = 1:numel(releases)
     release = releases(r);
@@ -88,60 +92,70 @@ for r = 1:numel(releases)
                         all_soz = unique([cell2mat(cellfun(@(x) find(strcmpi(x, ft_data.label)), soz, 'UniformOutput', false)); cell2mat(cellfun(@(x) find(strcmpi(x, ft_data.label)), interictal_cont, 'UniformOutput', false))]);
                         nChan = numel(ft_data.label);
                         
+                        if isempty(all_soz)
+                            warning('The 
+                        
                         nTrial = numel(ft_data.trial);
                         for j = 1:nTrial
                             % run detection alg
-                            [out,MARKER] = ...
-                                spike_detector_hilbert_v16_byISARG(ft_data.trial{j}', header.sample_rate);
-                            
-                            % eliminate some spikes
-                            include_length = win;%.300*MARKER.fs;
-                            nSamp = size(MARKER.d,1);
-                            nSpike = numel(out.pos);
-                            kept_spike = false(size(out.pos));
-                            
-                            % for each spike, check if there are other
-                            % spikes within WIN samples in at least
-                            % MIN_CHAN soz or interictal channels
-                            for i = 1:nSpike
-                               curr_pos = out.pos(i);
-                               curr_chan = out.chan(i);
-                               
-                               if kept_spike(i) == 0
-                                   win_spike = (out.pos > curr_pos & out.pos < curr_pos + win);
-                                   win_chan = out.chan(win_spike);
-                                   
-                                   if sum(intersect(win_chan,all_soz)) >= min_chan
-                                       kept_spike(win_spike) = true;
-                                   end
-                               end
+                            try
+                                [out,MARKER] = ...
+                                    spike_detector_hilbert_v16_byISARG(ft_data.trial{j}', header.sample_rate);
+                                
+                                % eliminate some spikes
+                                include_length = win;%.300*MARKER.fs;
+                                nSamp = size(MARKER.d,1);
+                                nSpike = numel(out.pos);
+                                kept_spike = false(size(out.pos));
+                                
+                                % for each spike, check if there are other
+                                % spikes within WIN samples in at least
+                                % MIN_CHAN soz or interictal channels
+                                for i = 1:nSpike
+                                    curr_pos = out.pos(i);
+                                    curr_chan = out.chan(i);
+                                    
+                                    if kept_spike(i) == 0
+                                        win_spike = (out.pos > curr_pos & out.pos < curr_pos + win);
+                                        win_chan = out.chan(win_spike);
+                                        
+                                        if sum(intersect(win_chan,all_soz)) >= min_chan
+                                            kept_spike(win_spike) = true;
+                                            print(num2str(i))
+                                        end
+                                    end
+                                end
+                                % slect only good spikes
+                                out_clean.pos = out.pos(kept_spike);
+                                out_clean.dur = out.dur(kept_spike);
+                                out_clean.chan = out.chan(kept_spike);
+                                out_clean.weight = out.weight(kept_spike);
+                                out_clean.con = out.con(kept_spike);
+                                n_spikes = [n_spikes; sum(kept_spike)];
+                                % get new M
+                                m_clean = zeros(size(MARKER.M));
+                                for i=1:size(out_clean.pos,1)
+                                    m_clean(round(out_clean.pos(i)*MARKER.fs:out.pos(i)*MARKER.fs+discharge_tol*MARKER.fs),...
+                                        out_clean.chan(i))=out_clean.con(i);
+                                end
+                                MARKER.m_clean = m_clean;
+                                
+                                
+                                % save
+                                save([save_dir, 'spike_info.mat'], 'out_clean', 'MARKER');
+                            catch ME
+                                errors(end+1).files = [subj, '_', exper, '_', sess];
+                                errors(end).message = ME.message;
                             end
-                            % slect only good spikes
-                            out_clean.pos = out.pos(kept_spike);
-                            out_clean.dur = out.dur(kept_spike);
-                            out_clean.chan = out.chan(kept_spike);
-                            out_clean.weight = out.weight(kept_spike);
-                            out_clean.con = out.con(kept_spike);
-                            % get new M
-                            m_clean = zeros(size(MARKER.M));
-                            for i=1:size(out_clean.pos,1)
-                                m_clean(round(out_clean.pos(k)*MARKER.fs:out.pos(k)*fs+discharge_tol*fs),...
-                                    out_clean.chan(i))=out_clean.con(i);
-                            end
-                            
-                            
-                            
-                            
-                            
-                            
                             
                         end
                     end
                 end
             end
         end
-        
     end
 end
 
-
+% remove empty entry
+errors = errors(2:end);
+save([release_dir, 'spike_errors.mat'], 'errors');
