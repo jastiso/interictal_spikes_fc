@@ -14,7 +14,7 @@ top_dir = '/Volumes/bassett-data/Jeni/RAM/';
 release_dir = [top_dir, 'release', release '/'];
 eval(['cd ', top_dir])
 
-win = 0.05; % size of the window to look for the minimum number of channels, in seconds
+win = 0.065; % size of the window to look for the minimum number of channels, in seconds
 discharge_tol=0.005; % taken from spike function
 min_chan = 3;
 
@@ -87,6 +87,7 @@ if exist([save_dir, 'data_clean.mat'], 'file')
             spike_detector_hilbert_v16_byISARG(ft_data.trial{j}', header.sample_rate);
         
         % eliminate some spikes
+        include_length = win;%.300*MARKER.fs;
         nSamp = size(MARKER.d,1);
         nSpike = numel(out.pos);
         kept_spike = false(size(out.pos));
@@ -99,7 +100,7 @@ if exist([save_dir, 'data_clean.mat'], 'file')
                 win_spike = (out.pos > curr_pos & out.pos < (curr_pos + win));
                 win_chan = out.chan(win_spike);
                 
-                if numel(unique(win_chan)) >= min_chan
+                if sum(unique(win_chan)) >= min_chan
                     kept_spike(win_spike) = true;
                 end
                 
@@ -111,6 +112,8 @@ if exist([save_dir, 'data_clean.mat'], 'file')
         out_clean(j).chan = out.chan(kept_spike);
         out_clean(j).weight = out.weight(kept_spike);
         out_clean(j).con = out.con(kept_spike);
+        n_spikes = [n_spikes; numel(kept_spike)/(size(MARKER.M,2)/MARKER.fs)];
+        fprintf('This dataset had %d IEDs per second\n', numel(kept_spike)/(size(MARKER.M,1)/MARKER.fs))
         
         % get new M
         m_clean = zeros(size(MARKER.M));
@@ -139,6 +142,9 @@ en = 44*marker(1).fs;
 figure(1); clf
 plot_lfp(marker(1).d(st:en,:)', 24*marker(1).fs); hold on
 plot_lfp(marker(1).d(logical(marker(1).m_clean(st:en,:)))', 24*marker(1).fs, 'r*');
+
+
+
 
 
 
