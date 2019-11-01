@@ -151,6 +151,6 @@ curves = curves(2:end,:); % get rid of empty entry
 psd_sim = mean(corr(curves', 'type', 'spearman'));
 psd_thr = quantile(psd_sim, .1);
 
-bad_datasets = names{psd_sim < psd_thr | sse > sse_thr | problem_data}; 
+bad_datasets = names(psd_sim < psd_thr | sse > sse_thr | problem_data); 
 
 save([top_dir, 'bad_datasets.mat'], 'bad_datasets')

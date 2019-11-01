@@ -17,7 +17,8 @@ top_dir = '/Volumes/bassett-data/Jeni/RAM/';
 eval(['cd ', top_dir])
 
 % for marking artifacts
-thr = 30000; % how big the derivative needs to be to flag it
+deriv_thr = 30000; % how big the derivative needs to be to flag it
+std_thr = 300;
 releases = ['1', '2', '3'];
 n_art = [];
 
@@ -69,9 +70,7 @@ for r = 1:numel(releases)
                 % get seesions
                 eval(['sessions = fields(info.subjects.' subj, '.experiments.', exper, '.sessions);'])
                 for n = 1:numel(sessions)
-                    %initialize
-                    
-                    
+
                     sess = sessions{n};
                     sess = strsplit(sess, 'x');
                     sess = sess{end};
@@ -100,22 +99,47 @@ for r = 1:numel(releases)
                             try
                                 % get derivative of time series
                                 td = diff(curr')'./diff(curr_time);
-                                td = [ones(nElec,1), td]; % add a one to counteract size change from diff
+                                td = [ones(nElec,1), td]; % add a placeholder to counteract size change from diff
+                                % get variance (for finding flatlining)
+                                sigma = std(td);
                                 
-                                %check for 0 or very large
-                                artifact_sharp = (td > thr );
-                                artifact_flat = (td == 0);
-                                artifacts = artifact_sharp | artifact_flat;
-                                artifact_type = artifacts + artifact_sharp; % sharp derivative marked as 2, zeros as 1
-                                n_chan = sum(artifacts);
-                                % get only those in 1/3 of channels
-                                artifact_idx = n_chan >= half;
-                                artifact_type = artifact_type(artifact_idx);
+                                %check for very large derivative
+                                n_chan = sum(td > deriv_thr );
+                                % make sure its present in at least half of
+                                % electrodes
+                                artifact_sharp = n_chan >= half;
+                                % check for flatlining
+                                artifact_flat = (sigma < std_thr);
+                                artifact_flat(1) = 0; % accounting for the fact that the first time point is constant
+                                % flatlineing artifacts have to have the
+                                % next 5 seconds removed (5s comes from
+                                % spike detection algorithm widnow size)
+                                % flatlines create lots of spurious spikes
+                                % because spikes are identified in
+                                % comparison to the background
+                                win = 5*header.sample_rate;
+                                indices = find(artifact_flat);
+                                prev_idx = 0;
+                                if sum(artifact_flat > 0)
+                                    for i = 1:sum(artifact_flat)
+                                        if (indices(i) + win - 1) < numel(artifact_flat)
+                                            artifact_flat(indices(i):(indices(i) + win - 1)) = 1;
+                                        else
+                                            artifact_flat(indices(i):end) = 1;
+                                            break
+                                        end
+                                    end
+                                end
                                 
-                                fprintf('%d artifacts found\n', sum(artifact_idx));
+                                artifact_idx = artifact_sharp | artifact_flat;
+                                artifact_type = artifact_idx + artifact_sharp; % sharp derivative marked as 2, zeros as 1
+                                
+                                fprintf('%d sharp artifacts found and %d flat artifacts found\n', sum(artifact_sharp), sum(artifact_flat));
                                 n_art{1,end+1} = subj; n_art{2,end} = exper;
                                 n_art{3,end} = sess; n_art{4,end} = j;
-                                n_art{5,end} = sum(artifact_idx);
+                                n_art{5,end} = sum(artifact_sharp); 
+                                n_art{6,end} = sum(artifact_flat);
+
                                 
                                 save([save_dir, 'artifact.mat'], 'artifact_idx', 'artifact_type')
                                 
@@ -130,11 +154,11 @@ for r = 1:numel(releases)
                                     saveas(gca, [img_dir, 'artifact.png'], 'png')
                                 end
                                 
-                            catch ME
-                                errors(end+1).files = [subj, '_', exper, '_', sess];
-                                errors(end).message = ME.message;
-                            end
-                            
+                             catch ME
+                                 errors(end+1).files = [subj, '_', exper, '_', sess];
+                                 errors(end).message = ME.message;
+                             end
+                             
                         end
                         
                     end

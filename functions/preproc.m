@@ -284,6 +284,14 @@ for p = 1:numel(protocols)
                     ft_data = fieldtrip_format(data_raw, header.sample_rate, labels, trl);
                     nTrial = numel(ft_data.trial);
                     
+                    %% Downsample
+                    % to 512, smallest number for all subjects
+                    fprintf('\nResampling...\n')
+                    cfg = [];
+                    cfg.resamplefs = 512;
+                    ft_data = ft_resampledata(cfg,ft_data);
+                    header.sample_rate = 512;
+                    
                     %% Filter
                     fprintf('\nFiltering...')
                     
