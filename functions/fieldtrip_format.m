@@ -7,6 +7,7 @@ ft_data.time{1,1} = (1/srate):(1/srate):(size(data,2)/srate);
 ft_data.label = elec_labels;
 ft_data.fsample = srate;
 ft_data.nSamples = size(data,2);
+ft_data.sampleinfo = [trl(1,1), trl(end,2)];
 
 if ~isempty(trl)
     cfg = [];

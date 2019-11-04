@@ -236,7 +236,7 @@ for p = 1:numel(protocols)
                     end
                     
                     
-                    %% Epoch?
+                    %% Epoch
                     
                     % check that we have enought data, now
                     % that we know how long the data is

@@ -205,5 +205,5 @@ end
 
 % remove empty entry
 errors = errors(2:end);
-save([release_dir, 'spike_errors.mat'], 'errors');
-save([release_dir, 'n_spikes.mat'], 'n_spikes');
+save([top_dir, 'spike_errors.mat'], 'errors');
+save([top_dir, 'n_spikes.mat'], 'n_spikes');
