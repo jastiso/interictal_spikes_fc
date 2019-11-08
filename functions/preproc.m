@@ -283,14 +283,17 @@ for p = 1:numel(protocols)
                     % get in fieldtrip format
                     ft_data = fieldtrip_format(data_raw, header.sample_rate, labels, trl);
                     nTrial = numel(ft_data.trial);
+                    timeinfo = ft_data.sampleinfo./header.sample_rate; % pull this out for later - time of each trial in seconds in original data
                     
                     %% Downsample
                     % to 512, smallest number for all subjects
                     fprintf('\nResampling...\n')
                     cfg = [];
-                    cfg.resamplefs = 512;
+                    cfg.resamplefs = 500;
                     ft_data = ft_resampledata(cfg,ft_data);
-                    header.sample_rate = 512;
+                    header.sample_rate = 500;
+                    ft_data.timeinfo = timeinfo;
+                    ft_data.sampleinfo = timeinfo*header.sample_rate;
                     
                     %% Filter
                     fprintf('\nFiltering...')

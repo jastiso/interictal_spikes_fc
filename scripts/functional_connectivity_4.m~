@@ -152,7 +152,7 @@ for r = 1:numel(releases)
                                             % update spike idx
                                             spike_idx(cnt) = spike_flag;
                                             % update trl
-                                            trl(cnt,:) = [st, en, 0] + (trl_offset - 1);
+                                            trl(cnt,:) = [st, en, 0] + trl_offset;
                                             % update cnt
                                             cnt = cnt + 1;
                                         end
@@ -299,36 +299,33 @@ for r = 1:numel(releases)
                             fc_header.analysis_cfg = wave.cfg;
                             
                             % power
-                            save([save_dir, 'power.mat'], 'pow', 'bands', 'label', 'fc_header', 'spike_idx')
+                            save([save_dir, 'power.mat'], 'pow', 'bands', 'label', 'fc_header')
                             
                             % coh
-                            save([save_dir, 'mtcoherence.mat'], 'C', 'bands', 'labelcmb', 'fc_header', 'spike_idx')
+                            save([save_dir, 'mtcoherence.mat'], 'C', 'bands', 'labelcmb', 'fc_header')
                             
                             % add fields for hilbert
                             fc_header = ft_header;
                             fc_header.analysis_cfg = bp_data.cfg;
                             
                             % aec
-                            save([save_dir, 'amp_env_corr.mat'], 'aec', 'bands', 'labelcmb', 'fc_header', 'spike_idx')
+                            save([save_dir, 'amp_env_corr.mat'], 'aec', 'bands', 'labelcmb', 'fc_header')
                             
                             % plv
-                            save([save_dir, 'phase_lock_val.mat'], 'plv', 'bands', 'labelcmb', 'fc_header', 'spike_idx')
+                            save([save_dir, 'phase_lock_val.mat'], 'plv', 'bands', 'labelcmb', 'fc_header')
                             
                             % pac
-                            save([save_dir, 'phase_amp_coupl.mat'], 'pac', 'mi', 'bands', 'band_cf', 'labelcmb', 'fc_header', 'spike_idx')
+                            save([save_dir, 'phase_amp_coupl.mat'], 'pac', 'mi', 'bands', 'band_cf', 'labelcmb', 'fc_header')
                             
                             % add fields for low pass
                             fc_header = ft_header;
                             fc_header.analysis_cfg = lfp.cfg;
                             
                             % xcor
-                            save([save_dir, 'crosscorr.mat'], 'xcorr_lfp', 'labelcmb', 'fc_header', 'spike_idx')
+                            save([save_dir, 'crosscorr.mat'], 'xcorr_lfp', 'labelcmb', 'fc_header')
                             
                             % ar
-                            save([save_dir, 'autoreg.mat'], 'ar', 'labelcmb_dir', 'fc_header', 'spike_idx')
-                            
-                            
-                            % get strengths, and add to table
+                            save([save_dir, 'autoreg.mat'], 'ar', 'labelcmb_dir', 'fc_header')
                             
                         end
                     end

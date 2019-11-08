@@ -1,0 +1,92 @@
+function [pac] = get_pac(phase,amp)
+% get phase-amplitude coupling for oscillation in theta and broadband gamma
+% get MI via KL distance method
+% compare to surrogate (single cut), return z-value
+
+%   Detailed explanation goes here
+
+%% Initialize
+
+nElec = numel(amp.label);
+nPair = (nElec^2-nElec)/2;
+nTrial = numel(amp.trial);
+nBin = 18; % this parameter has been shown to not make a huge difference in MI
+nSim = 500;
+pac =  zeros(nTrial, nPair);
+
+%% Get phase and amp
+
+% from complex hilbert data, get phase
+for t = 1:nTrial
+    phase.trial{t} = atan2(imag(phase.trial{t}),real(phase.trial{t}));
+end
+
+% from complext hilbert data, get amp
+for t = 1:nTrial
+    amp.trial{t} = abs(amp.trial{t});
+end
+
+%% Get PAC
+
+% Get modulation index
+uni_dist = repmat(unifpdf(linspace(-pi, pi, nBin),-pi,pi), nPair, 1);
+mod_idx = zeros(nTrial,nPair);
+
+% -pi to pi
+angles = linspace(-pi, pi, 100);
+[~,edges] = discretize(angles, nBin);
+
+for i = 1:nTrial
+    
+    % vectorize
+    curr_phase = cell2mat(phase.trial(i));
+    curr_amp = cell2mat(amp.trial(i));
+    
+    % get indices for bins
+    ind = discretize(curr_phase,edges);
+    
+    % get MI
+    cnt = 0;
+    for j = 1:nElec
+        for k = (j+1):nElec
+            cnt = cnt + 1;
+            binned_amp = accumarray(ind(j,:)', curr_amp(k,:), [nBin, 1], @mean);
+            % normalize over all bins
+            binned_amp = binned_amp./sum(binned_amp,1);
+            mod_idx = mod_index(binned_amp', uni_dist);
+            
+            % get surrogate
+            surrogate_dist = pac_surr_cut(nSim, curr_phase(j,:), curr_amp(k,:), nBin, edges);
+            
+        end
+    end
+end
+
+%% Make surrogate data for elec PAC
+% using surrogate approach that cuts the raw data at a single point and
+% flips it (Aru et al)
+
+uni_dist = repmat(unifpdf(linspace(-pi, pi, nBin),-pi,pi), nSim, 1);
+surrogate_dist = zeros(sum(sig_contrast), nBin, nSim);
+mi_surr = zeros(nSim, sum(sig_contrast));
+
+% amplitudes
+curr_amp = cell2mat(amp{elec_idx}.trial);
+
+surrogate_dist(i,:,:) = pac_surr_cut(nSim, min_cut, phase{i}.trial, curr_amp, nBin, edges);
+
+mi_surr(:,i) = mod_index(squeeze(surrogate_dist(i, :, :))', uni_dist);
+
+% plot
+figure(1); clf
+histogram(mi_surr(:,i), 'Normalization', 'probability', 'FaceColor',rgb('steelblue'),'EdgeColor','white','facealpha', 0.8); hold on
+plot([mod_idx(elec_idx), mod_idx(elec_idx)], [0, .3], 'red', 'linewidth', 3)
+title(['MI vs Surrogate '])
+
+
+%% z-score
+z = (mod_idx(elec_idx) - mean(mi_surr(:,i)))/std(mi_surr(:,i));
+
+
+end
+

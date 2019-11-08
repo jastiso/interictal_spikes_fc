@@ -14,5 +14,6 @@ if ~isempty(trl)
     cfg.trl = trl;
     ft_data = ft_redefinetrial(cfg, ft_data);
 end
+
 end
 

@@ -93,6 +93,7 @@ for r = 1:numel(releases)
                         nTrial = numel(ft_data.trial);
                         nElec = numel(ft_data.label);
                         half = floor(nElec/2);
+                        artifact_all = struct('idx', [], 'type', []);
                         for j = 1:nTrial
                             curr = ft_data.trial{j};
                             curr_time = ft_data.time{j};
@@ -133,15 +134,15 @@ for r = 1:numel(releases)
                                 
                                 artifact_idx = artifact_sharp | artifact_flat;
                                 artifact_type = artifact_idx + artifact_sharp; % sharp derivative marked as 2, zeros as 1
-                                
+                                artifact_all(j).idx = artifact_idx;
+                                artifact_all(j).type = artifact_type;
+
                                 fprintf('%d sharp artifacts found and %d flat artifacts found\n', sum(artifact_sharp), sum(artifact_flat));
                                 n_art{1,end+1} = subj; n_art{2,end} = exper;
                                 n_art{3,end} = sess; n_art{4,end} = j;
                                 n_art{5,end} = sum(artifact_sharp); 
                                 n_art{6,end} = sum(artifact_flat);
 
-                                
-                                save([save_dir, 'artifact.mat'], 'artifact_idx', 'artifact_type')
                                 
                                 % plot
                                 if any(artifact_idx)
@@ -160,6 +161,7 @@ for r = 1:numel(releases)
                              end
                              
                         end
+                        save([save_dir, 'artifact.mat'], 'artifact_all')
                         
                     end
                 end
