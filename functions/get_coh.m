@@ -18,8 +18,8 @@ nTrial = numel(data.cumsumcnt);
 nBand = size(bands, 1);
 
 % initialize
-C = zeros(nFreq, nTrial, nPair);
-C_band = zeros(nBand, nTrial, nPair);
+C = zeros(nFreq, nPair, nTrial);
+C_band = zeros(nBand, nPair, nTrial);
 
 for i = 1:nPair
     % get csd
@@ -30,7 +30,7 @@ for i = 1:nPair
     Pxx = squeeze(data.powspctrm(:,x,:));
     Pyy = squeeze(data.powspctrm(:,y,:));
     % get coherence
-    C(:,:,1) = ((abs(Pxy).^2)./(Pxx.*Pyy))';
+    C(:,i,:) = ((abs(Pxy).^2)./(Pxx.*Pyy))';
 end
 
 % average over freq bands

@@ -96,15 +96,12 @@ for p = 1:numel(protocols)
                         age = nan;
                     end
                     try
-                        gender = demo.Gender{subj_idx}(1);
+                        age = demo.Age(subj_idx);
                     catch
-                        gender = nan;
+                        age = nan;
                     end
-                    try
-                        hand = demo.Handedness{subj_idx}(1);
-                    catch
-                        hand = nan;
-                    end
+                    gender = demo.Gender{subj_idx}(1);
+                    hand = demo.Handedness{subj_idx}(1);
                     save([save_dir, 'demographics.mat'], 'age', 'gender', 'hand', 'race')
                     
                     %% get channel info

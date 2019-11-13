@@ -11,7 +11,7 @@ nElec = numel(amp.label);
 nPair = (nElec^2-nElec)/2;
 nTrial = numel(amp.trial);
 nBin = 18; % this parameter has been shown to not make a huge difference in MI
-nSim = 500;
+nSim = 100;
 pac =  zeros(nTrial, nPair);
 
 %% Get phase and amp
@@ -37,10 +37,9 @@ angles = linspace(-pi, pi, 100);
 [~,edges] = discretize(angles, nBin);
 
 for i = 1:nTrial
-    
     % vectorize
-    curr_phase = cell2mat(phase.trial(i));
-    curr_amp = cell2mat(amp.trial(i));
+    curr_phase = phase.trial{i};
+    curr_amp = amp.trial{i};
     
     % get indices for bins
     ind = discretize(curr_phase,edges);
