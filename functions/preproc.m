@@ -282,6 +282,13 @@ for p = 1:numel(protocols)
                         header.n_samples = size(data_raw,2);
                     end
                     
+                    %% Downsample
+                    % to 500, smallest number for all subjects
+                    fprintf('\nResampling...\n')
+                    data_raw = resample(data_raw', 500, header.sample_rate)';
+                    header.orig_sample_rate = header.sample_rate;
+                    header.sample_rate = 500;
+                    header.n_samples = size(data_raw,2);
                     
                     %% Epoch
                     
@@ -304,7 +311,8 @@ for p = 1:numel(protocols)
                     trl = [];
                     if pretask
                         trl(1, 1) = 1;
-                        trl(1, 2) = events(start_idx).eegoffset - 1;
+                        % with resampling
+                        trl(1, 2) = (events(start_idx).eegoffset - 1)/header.orig_sample_rate*header.sample_rate;
                         fprintf('%d samples of pre-task data\n', (events(start_idx).eegoffset - 1))
                     else
                         fprintf('0 samples of pre-task data\n')
@@ -314,11 +322,11 @@ for p = 1:numel(protocols)
                     % now the post task data
                     if posttask
                         if numel(trl) > 0
-                            trl(2, 1) = events(end_idx).eegoffset + 1;
+                            trl(2, 1) = (events(end_idx).eegoffset + 1)/header.orig_sample_rate*header.sample_rate;
                             trl(2, 2) = header.n_samples;
                             fprintf('%d samples of post-task data\n', numel((events(end_idx).eegoffset + 1):header.n_samples))
                         else
-                            trl(1, 1) = events(end_idx).eegoffset + 1;
+                            trl(1, 1) = (events(end_idx).eegoffset + 1)/header.orig_sample_rate*header.sample_rate;
                             trl(1, 2) = header.n_samples;
                             fprintf('%d samples of post-task data\n', numel((events(end_idx).eegoffset + 1):header.n_samples))
                         end
@@ -331,17 +339,7 @@ for p = 1:numel(protocols)
                     ft_data = fieldtrip_format(data_raw, header.sample_rate, labels, trl);
                     nTrial = numel(ft_data.trial);
                     timeinfo = ft_data.sampleinfo./header.sample_rate; % pull this out for later - time of each trial in seconds in original data
-                    
-                    %% Downsample
-                    % to 512, smallest number for all subjects
-                    fprintf('\nResampling...\n')
-                    cfg = [];
-                    cfg.resamplefs = 500;
-                    ft_data = ft_resampledata(cfg,ft_data);
-                    header.sample_rate = 500;
-                    ft_data.timeinfo = timeinfo;
-                    ft_data.sampleinfo = timeinfo*header.sample_rate;
-                    
+                                        
                     %% Filter
                     fprintf('\nFiltering...')
                     

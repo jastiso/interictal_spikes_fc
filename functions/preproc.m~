@@ -96,12 +96,15 @@ for p = 1:numel(protocols)
                         age = nan;
                     end
                     try
-                        age = demo.Age(subj_idx);
+                        gender = demo.Gender{subj_idx}(1);
                     catch
-                        age = nan;
+                        gender = nan;
                     end
-                    gender = demo.Gender{subj_idx}(1);
-                    hand = demo.Handedness{subj_idx}(1);
+                    try
+                        hand = demo.Handedness{subj_idx}(1);
+                    catch
+                        hand = nan;
+                    end
                     save([save_dir, 'demographics.mat'], 'age', 'gender', 'hand', 'race')
                     
                     %% get channel info
@@ -286,6 +289,8 @@ for p = 1:numel(protocols)
                     % that we know how long the data is
                     if posttask
                         posttask = numel((events(end_idx).eegoffset + 1):header.n_samples) > min_seg;
+                        % resample 
+                        posttask = posttask/header.orig_sample_rate*header
                     end
                     if pretask
                         pretask = numel(1:(events(start_idx).eegoffset - 1)) > min_seg;

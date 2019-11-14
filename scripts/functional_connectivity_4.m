@@ -36,7 +36,7 @@ pmin = 1; pmax = 1; % order for AR model
 spike_win = 0.05; %for loading spike data
 win_length = 1; % in seconds
 
-for r = 1:numel(releases)
+for r = 2:numel(releases)
     release = releases(r);
     
     release_dir = [top_dir, 'release', release '/'];
@@ -107,7 +107,7 @@ for r = 1:numel(releases)
                         mkdir(save_dir);
                     end
                     
-                    if exist([data_dir, 'data_clean.mat'], 'file')
+                    if exist([data_dir, 'data_clean.mat'], 'file') && exist([data_dir, 'spike_info_', num2str(spike_win), '.mat'], 'file')
                         load([data_dir, 'data_clean.mat'])
                         load([data_dir, 'header.mat'])
                         load([data_dir, 'channel_info.mat'])
@@ -121,9 +121,14 @@ for r = 1:numel(releases)
                             curr_ext = [subj, '_' exper, '_', sess, '_', num2str(i)];
                             reject(i) = any(strcmp(curr_ext, bad_datasets));
                         end
+                        fprintf('\nRejected %d datasets\n', sum(reject))
+                        
                         ft_data.trial = ft_data.trial(~reject);
                         ft_data.time = ft_data.time(~reject);
-                        %ft_data.timeinfo = ft_data.timeinfo(~reject,:);
+                        out_clean = out_clean(~reject);
+                        artifact_all = artifact_all(~reject);
+                        ft_data.sampleinfo = ft_data.sampleinfo(~reject,:);
+                        ft_data.timeinfo = ft_data.timeinfo(~reject,:);
                         
                         if ~isempty(ft_data.trial)
                             tic
@@ -138,7 +143,7 @@ for r = 1:numel(releases)
                             trl = [];
                             spike_idx = [];
                             spike_num = [];
-                            spike_chans = [];
+                            spike_chan = {};
                             time_vec = [];
                             cnt = 1;
                             for i = 1:numel(ft_data.trial)
@@ -174,7 +179,7 @@ for r = 1:numel(releases)
                                             spike_num(cnt) = sum((curr_spike.pos >= st_ms) & (curr_spike.pos <= en_ms));
                                             spike_chan(cnt) = {curr_spike.chan((curr_spike.pos >= st_ms) & (curr_spike.pos <= en_ms))};
                                             % update trl
-                                            trl(cnt,:) = [st, en, 0] + (trl_offset - 1);
+                                            trl(cnt,:) = [st + (trl_offset - 1), en + (trl_offset - 1), 0];
                                             % add time
                                             time_vec(cnt) = (st + trl_offset - 1)/header.sample_rate;
                                             % update cnt
@@ -186,10 +191,15 @@ for r = 1:numel(releases)
                             end
                             % redefine trial
                             cfg = [];
-                            cfg.trl = round(trl);
+                            cfg.trl = trl;
                             win_data = ft_redefinetrial(cfg,ft_data);
                             nTrial = numel(win_data.trial);
-                            clear ft_data out_clean artifact_all
+                            clear ft_data artifact_all
+                            
+                            % check if something went wrong in the trial
+                            % definition, and it was getting the same data
+                            % twice
+                            
                             
                             % prewhiten
                             cfg = [];
@@ -323,9 +333,9 @@ for r = 1:numel(releases)
                             fprintf('Done!\n'); toc
                             % save things
                             cell_ft = struct2cell(win_data);
-                            fields = fieldnames(win_data);
-                            keep_idx = ~(strcmpi(fields, 'time') | strcmpi(fields, 'trial'));
-                            ft_header = cell2struct(cell_ft(keep_idx), fields(keep_idx));
+                            names_ft = fieldnames(win_data);
+                            keep_idx = ~(strcmpi(names_ft, 'time') | strcmpi(names_ft, 'trial'));
+                            ft_header = cell2struct(cell_ft(keep_idx), names_ft(keep_idx));
                             
                             % add fields for mtmFFT
                             fc_header = ft_header;
@@ -366,7 +376,19 @@ for r = 1:numel(releases)
                                 cellfun(@(x) any(strcmp(x, soz)), labelcmb(:,2));
                             spike_idx = cellfun(@(x) any(strcmp(x, interictal_cont)), labelcmb(:,1)) |...
                                 cellfun(@(x) any(strcmp(x, interictal_cont)), labelcmb(:,2));
-
+                            if ~any(soz_idx) % if this subject doesnt have soz marked, skip this metric
+                                spik_soz = 1;
+                            end
+                            if ~any(spike_idx) % if no interictal marked, take the elecs with the most spikes
+                                all_spike_chan = [];
+                                for i = 1:numel(out_clean)
+                                    all_spike_chan = [all_spike_chan; out_clean(i).chan];
+                                end
+                                [counts,groups]=groupcounts(all_spike_chan);
+                                groups = groups(counts > 1);
+                                interictal_cont = labels(groups);
+                                
+                            end
                             for i = 1:nMeasures
                                 curr_measure = measure_names{i};
                                 switch curr_measure

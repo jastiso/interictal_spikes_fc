@@ -102,6 +102,12 @@ for r = 1:numel(releases)
                         
                         nTrial = numel(ft_data.trial);
                         for j = 1:nTrial
+                            % initialize
+                            out_clean(j).pos = 0;
+                            out_clean(j).dur = 0;
+                            out_clean(j).chan = 0;
+                            out_clean(j).weight = 0;
+                            out_clean(j).con = 0;
                             % run detection alg
                             try
                                 [out,MARKER] = ...
@@ -187,6 +193,7 @@ for r = 1:numel(releases)
                                 marker(j).fs = MARKER.fs;
                                 
                             catch ME
+                                
                                 errors(end+1).files = [subj, '_', exper, '_', sess];
                                 errors(end).message = ME.message;
                             end
