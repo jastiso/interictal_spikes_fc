@@ -1,0 +1,32 @@
+---
+title: "Do Interictal Discharges Affect iEEG Functional Connectivity"
+output: html_document
+author: Jennifer Stiso
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+```{r include=FALSE}
+if (!require("pacman")) install.packages("pacman")
+pacman::p_load(ggplot2, dplyr, lm.beta( RColorBrewer, wesandersen, nationalparkcolors))
+```
+
+# Methods
+
+words
+
+## Load Data
+
+```{r}
+
+```
+
+
+## Network Models
+
+
+@# Node Models
+
+
+

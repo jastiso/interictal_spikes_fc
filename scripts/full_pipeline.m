@@ -1,0 +1,5 @@
+run preproc_wrapper_0
+run spike_wrapper_1
+run temporal_artifact_2
+run reject_subj_3
+run functional_connectivity_4

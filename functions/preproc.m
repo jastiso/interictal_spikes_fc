@@ -336,9 +336,9 @@ for p = 1:numel(protocols)
                     trl(:,3) = 0;
                     
                     % get in fieldtrip format
-                    ft_data = fieldtrip_format(data_raw, header.sample_rate, labels, trl);
+                    ft_data = fieldtrip_format(data_raw, header.sample_rate, labels, round(trl)); % round to get out of scientific notation
                     nTrial = numel(ft_data.trial);
-                    timeinfo = ft_data.sampleinfo./header.sample_rate; % pull this out for later - time of each trial in seconds in original data
+                    ft_data.timeinfo = ft_data.sampleinfo./header.sample_rate; % pull this out for later - time of each trial in seconds in original data
                                         
                     %% Filter
                     fprintf('\nFiltering...')

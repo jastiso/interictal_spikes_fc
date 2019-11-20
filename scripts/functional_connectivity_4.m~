@@ -570,4 +570,5 @@ end
 
 % save errors
 errors = errors(2:end);
-save([top_dir, 'fc_errors.mat'], 'errors');
+
+save([release_dir, 'errors.mat'], 'errors');
