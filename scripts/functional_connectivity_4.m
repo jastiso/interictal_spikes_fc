@@ -37,7 +37,7 @@ pmin = 1; pmax = 1; % order for AR model
 spike_win = 0.05; %for loading spike data
 win_length = 1; % in seconds
 
-for r = 2:numel(releases)
+for r = 1:numel(releases)
     release = releases(r);
     
     release_dir = [top_dir, 'release', release '/'];
@@ -100,6 +100,7 @@ for r = 2:numel(releases)
                     % folders
                     data_dir = [top_dir, 'processed/release',release, '/', protocol, '/', subj, '/', exper, '/', sess, '/'];
                     save_dir = [top_dir, 'FC/release',release, '/', protocol, '/', subj, '/', exper, '/', sess, '/'];
+                    subj_dir = [top_dir, 'FC/release',release, '/', protocol, '/', subj, '/'];
                     img_dir = [top_dir, 'img/FC/release',release, '/', protocol, '/', subj, '/', exper, '/', sess, '/'];
                     if ~exist(img_dir, 'dir')
                         mkdir(img_dir);
@@ -563,7 +564,7 @@ for r = 2:numel(releases)
                 end
             end
             % save subject table
-            writetable(fc_table, [save_dir, 'fc_data.csv'])
+            writetable(fc_table, [subj_dir, 'fc_data.csv'])
         end
     end
 end

@@ -6,10 +6,43 @@ author: Jennifer Stiso
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-```
-```{r include=FALSE}
+
+# clean workspace
+rm(list=ls())
+
 if (!require("pacman")) install.packages("pacman")
-pacman::p_load(ggplot2, dplyr, lm.beta( RColorBrewer, wesandersen, nationalparkcolors))
+pacman::p_load(ggplot2, dplyr, lm.beta, RColorBrewer, nationalparkcolors, rjson)
+
+# directory for RAM data, request from XXX
+RAM_dir = '/Volumes/bassett-data/Jeni/RAM/'
+```
+
+## Functions
+```{r}
+get_beta <- function(d, ys, f) {
+  # check if multiple sess and exper
+  if (length(unique(d$sess)) > 1) {
+    f <- paste(f, 'sess', sep = ' + ')
+  }
+  if (length(unique(d$exper)) > 1) {
+    f <- paste(f, 'exper', sep = ' + ')
+  }
+  # fit models for every given predictor
+  for (y in ys){
+    beta_bin_name = paste(y, 'beta_bin', sep = '_')
+    beta_num_name = paste(y, 'beta_num', sep = '_')
+    if (all(is.na(d[y]))){ # check for nans
+      d[beta_bin_name] <- NaN
+      d[beta_num_name] <- NaN
+    } else {
+      fit <-lm(formula=paste(y, f, sep=''), data=d)
+      fit <- lm.beta(fit)
+      d[beta_bin_name] <- fit$standardized.coefficients['bin_spikeTRUE']
+      d[beta_num_name] <- fit$standardized.coefficients['spike_num']
+    }
+  }
+  return(d)
+}
 ```
 
 # Methods
@@ -19,14 +52,90 @@ words
 ## Load Data
 
 ```{r}
+# get subjects from all releases
+releases <- c('1', '2', '3')
+subj <- list()
+for (r in releases){
+  curr_info <- paste(RAM_dir, 'release', r, '/protocols/r1.json', sep='')
+  df <- rjson::fromJSON(file = curr_info)
+  df <- names(df$protocols$r1$subjects) %>%
+    lapply(function(x){paste('release', r, '/r1/', x, sep ='')})
+  subj <- append(subj, df)
+}
 
 ```
 
+## Fit Models
 
-## Network Models
+```{r}
+# intiialize, make constants
+# constant fields
+const_vars <- c('subj', 'hand', 'age', 'gender', 'race')
+form <- ' ~ power + bin_spike + spike_num + time'
 
+# final df
+col_names <- c("fc_measure", "band", 'band_measure', "str_beta_bin", "str_beta_num", "soz", "subj", "hand", "age", "gender", "race", 'n_tp')
+net_betas <- data.frame(matrix(ncol = length(col_names), nrow = 0))
+colnames(net_betas) = col_names
+col_names = c("subj", "fc_measure", "band", 'band_measure', "str_soz_beta", "str_not_soz_beta", "str_spike_beta", 
+              "str_not_spike_beta", "elec", "region", "n_tp", "elec_in_soz", "elec_has_spike", "age", "gender", "race", "hand" )
+node_betas <- data.frame(matrix(ncol = length(col_names), nrow = 0))
+colnames(node_betas) = col_names
 
-@# Node Models
+# for each subject, load their data and fit some models
+for (s in subj){
+  # load strengths from matlab
+  curr_csv <- paste(RAM_dir, 'FC/', s, '/fc_data.csv', sep = '')
+  node_data <- read.csv(curr_csv)
+  # add band measure, combined string, for easy indexing (keep separate for plotting)
+  node_data <- mutate(node_data, band_measure = paste(band, fc_measure, sep = '_'))
+  # add binary spike
+  node_data$bin_spike = node_data$spike_num > 0
+  # drop hg phase locking
+  node_data <- filter(node_data, band_measure != "hg_plv")
+  
+  # get network level strength
+  net_data <- group_by(node_data, exper, sess, elec_in_soz, time, spike_num, bin_spike, fc_measure, band, band_measure) %>%
+    dplyr::summarise(str_soz = mean(str_soz, na.rm=TRUE), str_not_soz = mean(str_not_soz, na.rm=TRUE), power = mean(power))
+  net_data$str_soz[net_data$elec_in_soz == 0] = NaN
+  net_data$str_not_soz[net_data$elec_in_soz == 1] = NaN
+  net_data$str <- net_data$str_soz
+  net_data$str[net_data$elec_in_soz == 0] = net_data$str_not_soz[net_data$elec_in_soz == 0]
+  colnames(net_data)[colnames(net_data)=="elec_in_soz"] <- "soz"
+  # add constants
+  net_data[const_vars] = node_data[const_vars][1,]
+  
+  # for every fc_meansure and band, fit network model
+  curr_net_beta <- group_by(net_data, band_measure, soz) %>%
+    group_modify(~ get_beta(.x,'str', form)) %>%
+    dplyr::summarise(n_tp = length(time), str_beta_bin = str_beta_bin[1], str_beta_num = str_beta_num[1], fc_measure = fc_measure[1], band = band[1])
+  curr_net_beta[const_vars] = node_data[const_vars][1,]
+  
+  # concatenate
+  net_betas <- bind_rows(curr_net_beta, net_betas)
+  
+  # fit all node models
+  curr_node_beta <-group_by(node_data, elec, elec_in_soz, elec_has_spike, band_measure) %>%
+    group_modify(~ get_beta(.x,c('str_not_soz', 'str_not_spike', 'str_soz', 'str_spike'), form)) %>%
+    dplyr::summarise(n_tp = length(time), str_soz_beta_bin = str_soz_beta_bin[1], str_not_soz_beta_bin = str_not_soz_beta_bin[1], 
+                     str_spike_beta_bin = str_spike_beta_bin[1], str_not_spike_beta_bin = str_not_spike_beta_bin[1], 
+                     tr_soz_beta_bin = str_soz_beta_num[1], str_not_soz_beta_num = str_not_soz_beta_num[1], str_spike_beta_num = str_spike_beta_num[1], 
+                     str_not_spike_beta_num = str_not_spike_beta_num[1], fc_measure = fc_measure[1], band = band[1], region = region[1])
+  curr_node_beta[const_vars] = node_data[const_vars][1,]
+  
+  # concatenate
+  node_betas <- bind_rows(curr_node_beta, node_betas)
+  
+}
 
+# save betas
+
+```
+
+## EDA
+
+```{r}
+
+```
 
 
