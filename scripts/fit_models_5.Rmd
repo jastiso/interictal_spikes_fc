@@ -32,6 +32,10 @@ get_beta <- function(d, ys, f) {
   if (length(unique(d$exper)) > 1) {
     f <- paste(f, 'exper', sep = ' + ')
   }
+  # scale x's
+  d['spike_num'] <- scale(d['spike_num'])
+  d['power'] <- scale(d['power'])
+  
   # fit models for every given predictor
   for (y in ys){
     beta_bin_name = paste(y, 'beta_bin', sep = '_')
@@ -40,14 +44,13 @@ get_beta <- function(d, ys, f) {
       d[beta_bin_name] <- NaN
       d[beta_num_name] <- NaN
     } else {
-      # remove outliers
-      #d[scores(d[y], type="z", prob=0.99)] <- NaN
-      #d[scores(d['spike_num'], type="z", prob=0.99)] <- NaN
+      # scale y
+      d[y] <- scale(d[y])
+      
       # fit
-      fit <- lm(formula=paste(y, f, sep=''), data=d)
-      fit <- lm.beta(fit)
-      d[beta_bin_name] <- fit$standardized.coefficients['bin_spikeTRUE']
-      d[beta_num_name] <- fit$standardized.coefficients['spike_num']
+      fit <- rlm(as.formula(paste(y, f, sep='')), data=d)
+      d[beta_bin_name] <- fit$coefficients['bin_spikeTRUE']
+      d[beta_num_name] <- fit$coefficients['spike_num']
 
     }
   }
@@ -157,7 +160,7 @@ if (!(all(is.na(node_data$str_soz)) | all(is.na(node_data$str_not_soz))
           group_modify(~ get_beta(.x,c('str_not_soz', 'str_not_spike', 'str_soz', 'str_spike'), form)) %>%
           dplyr::summarise(n_tp = length(time), str_soz_beta_bin = str_soz_beta_bin[1], str_not_soz_beta_bin = str_not_soz_beta_bin[1], 
                            str_spike_beta_bin = str_spike_beta_bin[1], str_not_spike_beta_bin = str_not_spike_beta_bin[1], 
-                           tr_soz_beta_bin = str_soz_beta_num[1], str_not_soz_beta_num = str_not_soz_beta_num[1], str_spike_beta_num = str_spike_beta_num[1], 
+                           str_soz_beta_num = str_soz_beta_num[1], str_not_soz_beta_num = str_not_soz_beta_num[1], str_spike_beta_num = str_spike_beta_num[1], 
                            str_not_spike_beta_num = str_not_spike_beta_num[1], fc_measure = fc_measure[1], band = band[1], region = region[1])
         curr_node_beta[const_vars] <- node_data[const_vars][1,]
         
@@ -178,10 +181,11 @@ Tests on betas
 ```{r}
 net_data = read.csv('/Volumes/bassett-data/Jeni/RAM/group_analysis/net_data_clean.csv')
 net_data$race = as.factor(net_data$race)
+net_data$soz = as.factor(net_data$soz)
 
 # separate into soz vs not
 sub_net_data = net_data[net_data$soz != 2,]
-full_net_data = net_data[net_data$soz != 2,]
+full_net_data = net_data[net_data$soz == 2,]
 
 # binary
 fc = unique(net_data$fc_measure)
