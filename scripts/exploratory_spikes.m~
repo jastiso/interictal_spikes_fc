@@ -36,14 +36,6 @@ subj = 'R1021D';
 exper = 'YC1';
 sess = '0';
 
-subj = 'R1001P';
-exper = 'FR2';
-sess = '0';
-
-subj = 'R1060M';
-exper = 'FR2';
-sess = '0';
-
 %% Get spikes
 
 %eval(['info = info.protocols.', protocol,';']);
@@ -159,10 +151,9 @@ l = 4000;
 
 % randomly pick a spike
 st = size(marker(1).d,1);
-while st > (size(marker(1).d,1) - l - 101)
-    curr = randi(numel(out_clean(1).pos));
-    st = round(out_clean(1).pos(curr)*marker(1).fs) - 100;
-end
+while st > (size(marker(1).d,1)
+curr = randi(numel(out_clean.pos));
+st = round(out_clean.pos(curr)*marker(1).fs) - 100;
 
 % get data ready for plotting
 data = (marker(1).d - mean(marker(1).d))';

@@ -11,10 +11,15 @@ knitr::opts_chunk$set(echo = TRUE)
 rm(list=ls())
 
 if (!require("pacman")) install.packages("pacman")
-pacman::p_load(ggplot2, dplyr, lm.beta, RColorBrewer, nationalparkcolors, rjson)
+pacman::p_load(ggplot2, dplyr, lm.beta, RColorBrewer, nationalparkcolors, rjson, reticulate, gridExtra, wesanderson, MASS, outliers, lmerTest)
+
+# set up python for later
+use_python("/Users/stiso/anaconda3/bin/python") # path to python binary
+py_config() # check it is using the specified version
 
 # directory for RAM data, request from XXX
 RAM_dir = '/Volumes/bassett-data/Jeni/RAM/'
+
 ```
 
 ## Functions
@@ -35,10 +40,15 @@ get_beta <- function(d, ys, f) {
       d[beta_bin_name] <- NaN
       d[beta_num_name] <- NaN
     } else {
-      fit <-lm(formula=paste(y, f, sep=''), data=d)
+      # remove outliers
+      #d[scores(d[y], type="z", prob=0.99)] <- NaN
+      #d[scores(d['spike_num'], type="z", prob=0.99)] <- NaN
+      # fit
+      fit <- lm(formula=paste(y, f, sep=''), data=d)
       fit <- lm.beta(fit)
       d[beta_bin_name] <- fit$standardized.coefficients['bin_spikeTRUE']
       d[beta_num_name] <- fit$standardized.coefficients['spike_num']
+
     }
   }
   return(d)
@@ -68,17 +78,21 @@ for (r in releases){
 ## Fit Models
 
 ```{r}
+# Do we want to make plots? faster if no
+save_plot = TRUE
+
 # intiialize, make constants
 # constant fields
 const_vars <- c('subj', 'hand', 'age', 'gender', 'race')
-form <- ' ~ power + bin_spike + spike_num + time'
+form <- ' ~ power + bin_spike + spike_num'
 
 # final df
 col_names <- c("fc_measure", "band", 'band_measure', "str_beta_bin", "str_beta_num", "soz", "subj", "hand", "age", "gender", "race", 'n_tp')
 net_betas <- data.frame(matrix(ncol = length(col_names), nrow = 0))
 colnames(net_betas) = col_names
-col_names = c("subj", "fc_measure", "band", 'band_measure', "str_soz_beta", "str_not_soz_beta", "str_spike_beta", 
-              "str_not_spike_beta", "elec", "region", "n_tp", "elec_in_soz", "elec_has_spike", "age", "gender", "race", "hand" )
+col_names = c("subj", "fc_measure", "band", 'band_measure', "str_soz_beta_bin", "str_not_soz_beta_bin", "str_spike_beta_bin", 
+              "str_not_spike_beta_bin","str_soz_beta_num", "str_not_soz_beta_num", "str_spike_beta_num", 
+              "str_not_spike_beta_num", "elec", "region", "n_tp", "elec_in_soz", "elec_has_spike", "age", "gender", "race", "hand" )
 node_betas <- data.frame(matrix(ncol = length(col_names), nrow = 0))
 colnames(node_betas) = col_names
 
@@ -86,15 +100,17 @@ colnames(node_betas) = col_names
 for (s in subj){
   # load strengths from matlab
   curr_csv <- paste(RAM_dir, 'FC/', s, '/fc_data.csv', sep = '')
-  node_data <- read.csv(curr_csv)
+  node_data <- read.csv(curr_csv, colClasses=c(gender='character', hand='character', race='numeric', age='numeric'))
   # add band measure, combined string, for easy indexing (keep separate for plotting)
   node_data <- mutate(node_data, band_measure = paste(band, fc_measure, sep = '_'))
   # add binary spike
   node_data$bin_spike = node_data$spike_num > 0
+  # log transform
+  node_data$spike_num[node_data$spike_num != 0] = log(node_data$spike_num[node_data$spike_num != 0])
   # drop hg phase locking
   node_data <- filter(node_data, band_measure != "hg_plv")
   
-  # get network level strength
+  # get network level strength separated by soz and not soz
   net_data <- group_by(node_data, exper, sess, elec_in_soz, time, spike_num, bin_spike, fc_measure, band, band_measure) %>%
     dplyr::summarise(str_soz = mean(str_soz, na.rm=TRUE), str_not_soz = mean(str_not_soz, na.rm=TRUE), power = mean(power))
   net_data$str_soz[net_data$elec_in_soz == 0] = NaN
@@ -102,40 +118,151 @@ for (s in subj){
   net_data$str <- net_data$str_soz
   net_data$str[net_data$elec_in_soz == 0] = net_data$str_not_soz[net_data$elec_in_soz == 0]
   colnames(net_data)[colnames(net_data)=="elec_in_soz"] <- "soz"
+  # get total strength, and add extra rows
+  all_str <- group_by(node_data, exper, sess, time, spike_num, bin_spike, fc_measure, band, band_measure) %>%
+    dplyr::summarise(str = (mean(str_soz, na.rm=TRUE) + mean(str_not_soz, na.rm=TRUE))/2, power = mean(power), soz = 2)
+  # concatenate
+  net_data <- bind_rows(all_str, net_data)
   # add constants
   net_data[const_vars] = node_data[const_vars][1,]
   
+  # plots
+   if (save_plot){
+        p1 <- ggplot(data=net_data[net_data$spike_num != 0,], aes(x=spike_num)) + geom_histogram() + theme_minimal()
+        p2 <- ggplot(data=net_data[net_data$spike_num != 0,], aes(x=str, color=band, fill=as.factor(fc_measure))) + 
+          geom_histogram(alpha=0.7) + theme_minimal() + scale_fill_manual(values=park_palette("Saguaro")) + scale_color_grey()
+        p <- grid.arrange(p1, p2, nrow=2)
+        ggsave(paste(RAM_dir, 'img/models/', net_data$subj, '_net_hist.png', sep=''), plot=p, device = 'png')
+   }
+  
   # for every fc_meansure and band, fit network model
-  curr_net_beta <- group_by(net_data, band_measure, soz) %>%
-    group_modify(~ get_beta(.x,'str', form)) %>%
-    dplyr::summarise(n_tp = length(time), str_beta_bin = str_beta_bin[1], str_beta_num = str_beta_num[1], fc_measure = fc_measure[1], band = band[1])
-  curr_net_beta[const_vars] = node_data[const_vars][1,]
-  
-  # concatenate
-  net_betas <- bind_rows(curr_net_beta, net_betas)
-  
-  # fit all node models
-  curr_node_beta <-group_by(node_data, elec, elec_in_soz, elec_has_spike, band_measure) %>%
-    group_modify(~ get_beta(.x,c('str_not_soz', 'str_not_spike', 'str_soz', 'str_spike'), form)) %>%
-    dplyr::summarise(n_tp = length(time), str_soz_beta_bin = str_soz_beta_bin[1], str_not_soz_beta_bin = str_not_soz_beta_bin[1], 
-                     str_spike_beta_bin = str_spike_beta_bin[1], str_not_spike_beta_bin = str_not_spike_beta_bin[1], 
-                     tr_soz_beta_bin = str_soz_beta_num[1], str_not_soz_beta_num = str_not_soz_beta_num[1], str_spike_beta_num = str_spike_beta_num[1], 
-                     str_not_spike_beta_num = str_not_spike_beta_num[1], fc_measure = fc_measure[1], band = band[1], region = region[1])
-  curr_node_beta[const_vars] = node_data[const_vars][1,]
-  
-  # concatenate
-  node_betas <- bind_rows(curr_node_beta, node_betas)
-  
+  if (!(all(is.na(net_data$str)))){
+    try({
+      curr_net_beta <- group_by(net_data, band_measure, soz) %>%
+        group_modify(~ get_beta(.x,'str', form)) %>%
+        dplyr::summarise(n_tp = length(time), str_beta_bin = str_beta_bin[1], str_beta_num = str_beta_num[1], fc_measure = fc_measure[1], band = band[1])
+      curr_net_beta[const_vars] <- node_data[const_vars][1,]
+      
+      # concatenate
+      net_betas <- suppressWarnings(bind_rows(curr_net_beta, net_betas)) # silence warnings about converting factors to strings
+    })
+  }
+
+  # fit node models
+if (!(all(is.na(node_data$str_soz)) | all(is.na(node_data$str_not_soz))
+      | all(is.na(node_data$str_spike)) | all(is.na(node_data$str_not_spike)))){
+  print(paste('Subj', s))  
+  try({
+      curr_node_beta <- group_by(node_data, elec, elec_in_soz, elec_has_spike, band_measure) %>%
+          group_modify(~ get_beta(.x,c('str_not_soz', 'str_not_spike', 'str_soz', 'str_spike'), form)) %>%
+          dplyr::summarise(n_tp = length(time), str_soz_beta_bin = str_soz_beta_bin[1], str_not_soz_beta_bin = str_not_soz_beta_bin[1], 
+                           str_spike_beta_bin = str_spike_beta_bin[1], str_not_spike_beta_bin = str_not_spike_beta_bin[1], 
+                           tr_soz_beta_bin = str_soz_beta_num[1], str_not_soz_beta_num = str_not_soz_beta_num[1], str_spike_beta_num = str_spike_beta_num[1], 
+                           str_not_spike_beta_num = str_not_spike_beta_num[1], fc_measure = fc_measure[1], band = band[1], region = region[1])
+        curr_node_beta[const_vars] <- node_data[const_vars][1,]
+        
+      #  concetenate
+      node_betas <- suppressWarnings(bind_rows(curr_node_beta, node_betas)) # silence warnings about converting factors to strings
+    })
+  }
 }
 
 # save betas
+write.csv(net_betas, file = paste(RAM_dir, 'group_analysis/network_stats.csv', sep=''))
+write.csv(node_betas, file = paste(RAM_dir, 'group_analysis/node_stats.csv', sep=''))
 
 ```
 
-## EDA
+Tests on betas
 
 ```{r}
+net_data = read.csv('/Volumes/bassett-data/Jeni/RAM/group_analysis/net_data_clean.csv')
+net_data$race = as.factor(net_data$race)
 
+# separate into soz vs not
+sub_net_data = net_data[net_data$soz != 2,]
+full_net_data = net_data[net_data$soz != 2,]
+
+# binary
+fc = unique(net_data$fc_measure)
+for (m in fc){
+  print(m)
+  if (m == 'ar' | m == 'xcorr'){
+    fit = lmer(str_beta_bin ~ soz + race + gender + hand + age + (1|subj), data=dplyr::filter(sub_net_data, fc_measure == m))
+    print(anova(fit))
+  } else {
+    fit = lmer(str_beta_bin ~ band*soz + race + gender + hand + age + (1|subj), data=dplyr::filter(sub_net_data, fc_measure == m))
+    print(anova(fit))
+  }
+}
 ```
 
+```{r}
+# number of spikes
+for (m in fc){
+  print(m)
+  if (m == 'ar' | m == 'xcorr'){
+    fit = lmer(str_beta_num ~ soz + race + gender + hand + age + (1|subj), data=dplyr::filter(sub_net_data, fc_measure == m))
+    print(anova(fit))
+  } else {
+    fit = lmer(str_beta_num ~ band*soz + race + gender + hand + age + (1|subj), data=dplyr::filter(sub_net_data, fc_measure == m))
+    print(anova(fit))
+  }
+}
+```
 
+```{r}
+bfc = unique(full_net_data$band_measure)
+bin_ps = list()
+bin_ts = list()
+bin_df = list()
+for (m in bfc){
+  print(m)
+  curr <- filter(full_net_data, band_measure == m)
+  stat <- t.test(curr$str_beta_bin)
+  print(stat)
+  bin_ps = c(bin_ps, stat$p.value)
+  bin_ts = c(bin_ts, stat$statistic)
+  bin_df = c(bin_df, stat$parameter)
+}
+
+bin_stats = data.frame(p = p.adjust(bin_ps, method="bonferroni"), t = unlist(bin_ts), df = unlist(bin_df), measure = bfc, sig = p.adjust(bin_ps, method="bonferroni") < 0.05)
+bin_stats
+
+```
+```{r}
+num_ps = list()
+num_ts = list()
+num_df = list()
+for (m in bfc){
+  print(m)
+  curr <- filter(full_net_data, band_measure == m)
+  stat <- t.test(curr$str_beta_num)
+  print(stat)
+  num_ps = c(num_ps, stat$p.value)
+  num_ts = c(num_ts, stat$statistic)
+  num_df = c(num_df, stat$parameter)
+}
+
+num_stats = data.frame(p = p.adjust(num_ps, method="bonferroni"), t = unlist(num_ts), df = unlist(num_df), measure = bfc, sig = p.adjust(num_ps, method="bonferroni") < 0.05)
+num_stats
+
+```
+```
+## EDA
+
+```{python}
+# imports
+import numpy as np
+import pandas as pd
+import seaborn as sns
+
+# directories
+RAM_dir = '/Volumes/bassett-data/Jeni/RAM/'
+
+# load data
+net_data = pd.read_csv(RAM_dir + 'group_analysis/network_stats.csv')
+node_data = pd.read_csv(RAM_dir + 'group_analysis/node_stats.csv')
+
+node_data.head()
+```

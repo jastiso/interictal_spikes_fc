@@ -17,7 +17,7 @@ top_dir = '/Volumes/bassett-data/Jeni/RAM/';
 % constants
 load([top_dir, 'bad_datasets.mat'])
 
-releases = ['1', '2', '3'];
+releases = ['2', '3'];
 table_names = [{'subj'}, {'exper'}, {'sess'}, {'time'}, {'power'}, {'fc_measure'}, {'band'}, {'str_soz'}...
     {'str_not_soz'}, {'str_spike'}, {'str_not_spike'}, {'elec'}, {'region'}, {'elec_in_soz'},...
     {'elec_has_spike'}, {'spike_num'}, {'age'}, {'gender'}, {'race'}, {'hand'}];
@@ -307,7 +307,9 @@ for r = 1:numel(releases)
                                     cfg = [];
                                     cfg.lpfilt = 'yes';
                                     cfg.lpfilttype = 'but';
+                                    cfg.lpfreq = 200;
                                     cfg.lpfiltord = 4;
+                                    
                                     lfp = ft_preprocessing(cfg, win_data);
                                     
                                     % FC
@@ -494,8 +496,14 @@ for r = 1:numel(releases)
                                                 
                                                 if strcmp(curr_measure, 'xcorr')
                                                     curr_data = xcorr_lfp;
+                                                    elec_idx = cellfun(@(x) any(strcmp(x, curr)), labelcmb(:,1)) |...
+                                                        cellfun(@(x) any(strcmp(x, curr)), labelcmb(:,2));
                                                 elseif strcmp(curr_measure, 'ar')
                                                     curr_data = ar;
+                                                    % get index for
+                                                    % directed connectivity
+                                                    elec_idx = cellfun(@(x) any(strcmp(x, curr)), labelcmb_dir(:,1)) |...
+                                                        cellfun(@(x) any(strcmp(x, curr)), labelcmb_dir(:,2));
                                                 end
                                                 
                                                 % add strengths
@@ -506,8 +514,7 @@ for r = 1:numel(releases)
                                                     region = regions{j};
                                                     chan_idx = find(strcmp(label,label{j}));
                                                     spike_flag = cellfun(@(x) any(chan_idx == x), spike_chan);
-                                                    elec_idx = cellfun(@(x) any(strcmp(x, curr)), labelcmb(:,1)) |...
-                                                        cellfun(@(x) any(strcmp(x, curr)), labelcmb(:,2));
+                                                    
                                                     % get strengths
                                                     soz_str(cnt:(cnt+nTrial-1)) = mean(curr_data(:, elec_idx & soz_idx),2);
                                                     not_soz_str(cnt:(cnt+nTrial-1)) = mean(curr_data(:, elec_idx & ~soz_idx),2);
@@ -551,7 +558,7 @@ for r = 1:numel(releases)
                                                     not_spike_str, elec_order, region_order, elec_in_soz, elec_in_spike,...
                                                     spike_nums, age_order, gender_order, race_order, hand_order, 'VariableNames', table_names)];
                                             case 'pac'
-                                                curr_data = pac;
+                                                %curr_data = pac;
                                         end
                                     end
                                 end
