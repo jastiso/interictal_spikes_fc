@@ -17,10 +17,10 @@ top_dir = '/Volumes/bassett-data/Jeni/RAM/';
 % constants
 load([top_dir, 'bad_datasets.mat'])
 
-releases = ['2', '3'];
+releases = ['1', '2', '3'];
 table_names = [{'subj'}, {'exper'}, {'sess'}, {'time'}, {'power'}, {'fc_measure'}, {'band'}, {'str_soz'}...
     {'str_not_soz'}, {'str_spike'}, {'str_not_spike'}, {'elec'}, {'region'}, {'elec_in_soz'},...
-    {'elec_has_spike'}, {'spike_num'}, {'age'}, {'gender'}, {'race'}, {'hand'}];
+    {'elec_has_spike'}, {'spike_num'}, {'age'}, {'gender'}, {'race'}, {'hand'}, {'x'}, {'y'}, {'z'}];
 errors = struct('files', [], 'message', []);
 %bands
 freqs = unique(round(logspace(log10(4),log10(150),30)));
@@ -74,7 +74,7 @@ for r = 1:numel(releases)
             plv_vars = cellfun(@(x) ['plv_', x], band_names, 'UniformOutput', false);
             aec_vars = cellfun(@(x) ['aec_', x], band_names, 'UniformOutput', false);
             
-            fc_table = cell2table(cell(0,20), 'VariableNames', table_names);
+            fc_table = cell2table(cell(0,23), 'VariableNames', table_names);
             
             if ~exist([top_dir, 'processed/release',release, '/', protocol, '/', subj, '/'], 'dir')
                 mkdir([top_dir, 'processed/release',release, '/', protocol, '/', subj, '/']);
@@ -365,7 +365,7 @@ for r = 1:numel(releases)
                                     save([save_dir, 'phase_lock_val.mat'], 'plv', 'bands', 'labelcmb', 'fc_header', 'spike_idx')
                                     
                                     % pac
-                                    save([save_dir, 'phase_amp_coupl.mat'], 'pac', 'mi', 'bands', 'bands_cf', 'labelcmb', 'fc_header', 'spike_idx')
+                                    %save([save_dir, 'phase_amp_coupl.mat'], 'pac', 'mi', 'bands', 'bands_cf', 'labelcmb', 'fc_header', 'spike_idx')
                                     
                                     % add fields for low pass
                                     fc_header = ft_header;
@@ -381,11 +381,12 @@ for r = 1:numel(releases)
                                     % get strengths, and add to table
                                     soz_idx = cellfun(@(x) any(strcmp(x, soz)), labelcmb(:,1)) |...
                                         cellfun(@(x) any(strcmp(x, soz)), labelcmb(:,2));
+                                    soz_idx_dir = cellfun(@(x) any(strcmp(x, soz)), labelcmb_dir(:,1)) |...
+                                        cellfun(@(x) any(strcmp(x, soz)), labelcmb_dir(:,2));
                                     spike_idx = cellfun(@(x) any(strcmp(x, interictal_cont)), labelcmb(:,1)) |...
                                         cellfun(@(x) any(strcmp(x, interictal_cont)), labelcmb(:,2));
-                                    if ~any(soz_idx) % if this subject doesnt have soz marked, skip this metric
-                                        spik_soz = 1;
-                                    end
+                                    spike_idx_dir = cellfun(@(x) any(strcmp(x, interictal_cont)), labelcmb_dir(:,1)) |...
+                                        cellfun(@(x) any(strcmp(x, interictal_cont)), labelcmb_dir(:,2));
                                     if ~any(spike_idx) % if no interictal marked, take the elecs with the most spikes
                                         all_spike_chan = [];
                                         for i = 1:numel(out_clean)
@@ -394,7 +395,11 @@ for r = 1:numel(releases)
                                         [counts,groups]=groupcounts(all_spike_chan);
                                         groups = groups(counts > 1);
                                         interictal_cont = labels(groups);
-                                        
+                                        % try again
+                                        spike_idx = cellfun(@(x) any(strcmp(x, interictal_cont)), labelcmb(:,1)) |...
+                                            cellfun(@(x) any(strcmp(x, interictal_cont)), labelcmb(:,2));
+                                        spike_idx_dir = cellfun(@(x) any(strcmp(x, interictal_cont)), labelcmb_dir(:,1)) |...
+                                            cellfun(@(x) any(strcmp(x, interictal_cont)), labelcmb_dir(:,2));
                                     end
                                     for i = 1:nMeasures
                                         curr_measure = measure_names{i};
@@ -419,6 +424,9 @@ for r = 1:numel(releases)
                                                 elec_in_soz = nan(nElec*nTrial*nBand,1);
                                                 elec_in_spike = nan(nElec*nTrial*nBand,1);
                                                 region_order = cell(nElec*nTrial*nBand,1);
+                                                x = zeros(nElec*nTrial,1);
+                                                y = zeros(nElec*nTrial,1);
+                                                z = zeros(nElec*nTrial,1);
                                                 spike_nums = nan(nElec*nTrial*nBand,1);
                                                 time = nan(nElec*nTrial*nBand,1);
                                                 control_pow = nan(nElec*nTrial*nBand,1);
@@ -446,6 +454,9 @@ for r = 1:numel(releases)
                                                         elec_in_soz(cnt:(cnt+nTrial-1)) = repmat(any(strcmp(curr, soz)), nTrial, 1);
                                                         elec_in_spike(cnt:(cnt+nTrial-1)) = spike_flag;
                                                         region_order(cnt:(cnt+nTrial-1)) = {region};
+                                                        x(cnt:(cnt+nTrial-1)) = mni_coords{j}(1);
+                                                        y(cnt:(cnt+nTrial-1)) = mni_coords{j}(2);
+                                                        z(cnt:(cnt+nTrial-1)) = mni_coords{j}(3);
                                                         
                                                         % get other spike vars
                                                         spike_nums(cnt:(cnt+nTrial-1)) = spike_num;
@@ -479,7 +490,7 @@ for r = 1:numel(releases)
                                                 fc_table = [fc_table; table(subj_order, exper_order, sess_order, time,...
                                                     control_pow, meas_order, band_order, soz_str, not_soz_str, spike_str,...
                                                     not_spike_str, elec_order, region_order, elec_in_soz, elec_in_spike,...
-                                                    spike_nums, age_order, gender_order, race_order, hand_order, 'VariableNames', table_names)];
+                                                    spike_nums, age_order, gender_order, race_order, hand_order, x, y, z, 'VariableNames', table_names)];
                                             case [{'xcorr'}, {'ar'}]
                                                 % will becoms columns in dataframe
                                                 soz_str = nan(nElec*nTrial,1);
@@ -490,6 +501,9 @@ for r = 1:numel(releases)
                                                 elec_in_soz = nan(nElec*nTrial,1);
                                                 elec_in_spike = nan(nElec*nTrial,1);
                                                 region_order = cell(nElec*nTrial,1);
+                                                x = zeros(nElec*nTrial,1);
+                                                y = zeros(nElec*nTrial,1);
+                                                z = zeros(nElec*nTrial,1);
                                                 spike_nums = nan(nElec*nTrial,1);
                                                 time = nan(nElec*nTrial,1);
                                                 control_pow = nan(nElec*nTrial,1);
@@ -498,47 +512,90 @@ for r = 1:numel(releases)
                                                     curr_data = xcorr_lfp;
                                                     elec_idx = cellfun(@(x) any(strcmp(x, curr)), labelcmb(:,1)) |...
                                                         cellfun(@(x) any(strcmp(x, curr)), labelcmb(:,2));
+                                                    
+                                                    % add strengths
+                                                    cnt = 1;
+                                                    for j = 1:nElec
+                                                        % get indices and other stuff
+                                                        curr = label{j};
+                                                        region = regions{j};
+                                                        chan_idx = find(strcmp(label,label{j}));
+                                                        spike_flag = cellfun(@(x) any(chan_idx == x), spike_chan);
+                                                        
+                                                        % get strengths
+                                                        soz_str(cnt:(cnt+nTrial-1)) = mean(curr_data(:, elec_idx & soz_idx),2);
+                                                        not_soz_str(cnt:(cnt+nTrial-1)) = mean(curr_data(:, elec_idx & ~soz_idx),2);
+                                                        spike_str(cnt:(cnt+nTrial-1)) = mean(curr_data(:, elec_idx & spike_idx),2);
+                                                        not_spike_str(cnt:(cnt+nTrial-1)) = mean(curr_data(:, elec_idx & ~spike_idx),2);
+                                                        
+                                                        % get other elec vars
+                                                        elec_order(cnt:(cnt+nTrial-1)) = repmat({curr}, nTrial, 1);
+                                                        elec_in_soz(cnt:(cnt+nTrial-1)) = repmat(any(strcmp(curr, soz)), nTrial, 1);
+                                                        elec_in_spike(cnt:(cnt+nTrial-1)) = spike_flag;
+                                                        region_order(cnt:(cnt+nTrial-1)) = {region};
+                                                        x(cnt:(cnt+nTrial-1)) = mni_coords{j}(1);
+                                                        y(cnt:(cnt+nTrial-1)) = mni_coords{j}(2);
+                                                        z(cnt:(cnt+nTrial-1)) = mni_coords{j}(3);
+                                                        
+                                                        % get other spike vars
+                                                        spike_nums(cnt:(cnt+nTrial-1)) = spike_num;
+                                                        
+                                                        %time vars
+                                                        time(cnt:(cnt+nTrial-1)) = time_vec;
+                                                        
+                                                        % power in HG band
+                                                        control_pow(cnt:(cnt+nTrial-1)) = pow(end,:,chan_idx);
+                                                        
+                                                        % update counter
+                                                        cnt = cnt+nTrial;
+                                                    end
+                                                    
                                                 elseif strcmp(curr_measure, 'ar')
                                                     curr_data = ar;
                                                     % get index for
                                                     % directed connectivity
                                                     elec_idx = cellfun(@(x) any(strcmp(x, curr)), labelcmb_dir(:,1)) |...
                                                         cellfun(@(x) any(strcmp(x, curr)), labelcmb_dir(:,2));
+                                                    
+                                                    % add strengths
+                                                    cnt = 1;
+                                                    for j = 1:nElec
+                                                        % get indices and other stuff
+                                                        curr = label{j};
+                                                        region = regions{j};
+                                                        chan_idx = find(strcmp(label,label{j}));
+                                                        spike_flag = cellfun(@(x) any(chan_idx == x), spike_chan);
+                                                        
+                                                        % get strengths
+                                                        soz_str(cnt:(cnt+nTrial-1)) = mean(curr_data(:, elec_idx & soz_idx_dir),2);
+                                                        not_soz_str(cnt:(cnt+nTrial-1)) = mean(curr_data(:, elec_idx & ~soz_idx_dir),2);
+                                                        spike_str(cnt:(cnt+nTrial-1)) = mean(curr_data(:, elec_idx & spike_idx_dir),2);
+                                                        not_spike_str(cnt:(cnt+nTrial-1)) = mean(curr_data(:, elec_idx & ~spike_idx_dir),2);
+                                                        
+                                                        % get other elec vars
+                                                        elec_order(cnt:(cnt+nTrial-1)) = repmat({curr}, nTrial, 1);
+                                                        elec_in_soz(cnt:(cnt+nTrial-1)) = repmat(any(strcmp(curr, soz)), nTrial, 1);
+                                                        elec_in_spike(cnt:(cnt+nTrial-1)) = spike_flag;
+                                                        region_order(cnt:(cnt+nTrial-1)) = {region};
+                                                        x(cnt:(cnt+nTrial-1)) = mni_coords{j}(1);
+                                                        y(cnt:(cnt+nTrial-1)) = mni_coords{j}(2);
+                                                        z(cnt:(cnt+nTrial-1)) = mni_coords{j}(3);
+                                                        
+                                                        % get other spike vars
+                                                        spike_nums(cnt:(cnt+nTrial-1)) = spike_num;
+                                                        
+                                                        %time vars
+                                                        time(cnt:(cnt+nTrial-1)) = time_vec;
+                                                        
+                                                        % power in HG band
+                                                        control_pow(cnt:(cnt+nTrial-1)) = pow(end,:,chan_idx);
+                                                        
+                                                        % update counter
+                                                        cnt = cnt+nTrial;
+                                                    end
+                                                    
                                                 end
                                                 
-                                                % add strengths
-                                                cnt = 1;
-                                                for j = 1:nElec
-                                                    % get indices and other stuff
-                                                    curr = label{j};
-                                                    region = regions{j};
-                                                    chan_idx = find(strcmp(label,label{j}));
-                                                    spike_flag = cellfun(@(x) any(chan_idx == x), spike_chan);
-                                                    
-                                                    % get strengths
-                                                    soz_str(cnt:(cnt+nTrial-1)) = mean(curr_data(:, elec_idx & soz_idx),2);
-                                                    not_soz_str(cnt:(cnt+nTrial-1)) = mean(curr_data(:, elec_idx & ~soz_idx),2);
-                                                    spike_str(cnt:(cnt+nTrial-1)) = mean(curr_data(:, elec_idx & spike_idx),2);
-                                                    not_spike_str(cnt:(cnt+nTrial-1)) = mean(curr_data(:, elec_idx & ~spike_idx),2);
-                                                    
-                                                    % get other elec vars
-                                                    elec_order(cnt:(cnt+nTrial-1)) = repmat({curr}, nTrial, 1);
-                                                    elec_in_soz(cnt:(cnt+nTrial-1)) = repmat(any(strcmp(curr, soz)), nTrial, 1);
-                                                    elec_in_spike(cnt:(cnt+nTrial-1)) = spike_flag;
-                                                    region_order(cnt:(cnt+nTrial-1)) = {region};
-                                                    
-                                                    % get other spike vars
-                                                    spike_nums(cnt:(cnt+nTrial-1)) = spike_num;
-                                                    
-                                                    %time vars
-                                                    time(cnt:(cnt+nTrial-1)) = time_vec;
-                                                    
-                                                    % power in HG band
-                                                    control_pow(cnt:(cnt+nTrial-1)) = pow(end,:,chan_idx);
-                                                    
-                                                    % update counter
-                                                    cnt = cnt+nTrial;
-                                                end
                                                 
                                                 % add things that are constant
                                                 % across elecs
@@ -556,7 +613,7 @@ for r = 1:numel(releases)
                                                 fc_table = [fc_table; table(subj_order, exper_order, sess_order, time,...
                                                     control_pow, meas_order, band_order, soz_str, not_soz_str, spike_str,...
                                                     not_spike_str, elec_order, region_order, elec_in_soz, elec_in_spike,...
-                                                    spike_nums, age_order, gender_order, race_order, hand_order, 'VariableNames', table_names)];
+                                                    spike_nums, age_order, gender_order, race_order, hand_order, x, y, z, 'VariableNames', table_names)];
                                             case 'pac'
                                                 %curr_data = pac;
                                         end

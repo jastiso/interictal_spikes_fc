@@ -124,10 +124,14 @@ for p = 1:numel(protocols)
                     nChan = numel(labels);
                     chann_idx = zeros(nChan, 1);
                     regions = cell(nChan,1);
+                    mni_coords = cell(nChan,1);
                     for i = 1:numel(labels)
                         chann = labels{i};
                         eval(['chann_idx(i) = channel_info.contacts.', chann, '.channel;'])
                         eval(['regions{i} = channel_info.contacts.', chann, '.atlases.ind.region;'])
+                        eval(['mni_coords{i} = [channel_info.contacts.', chann, '.atlases.mni.x,',... 
+                            'channel_info.contacts.', chann, '.atlases.mni.y,',...
+                            'channel_info.contacts.', chann, '.atlases.mni.z];'])
                     end
                     % sort
                     [chann_idx, sort_idx] = sort(chann_idx, 'ascend');
@@ -152,6 +156,7 @@ for p = 1:numel(protocols)
                     labels = labels(idx);
                     chann_idx = chann_idx(idx);
                     regions = regions(idx);
+                    mni_coords = mni_coords(idx);
                     nChan = numel(labels);
                     
                     %% Get event info
@@ -434,6 +439,7 @@ for p = 1:numel(protocols)
                     end
                     chann_idx = chann_idx(~rmv);
                     regions = regions(~rmv);
+                    mni_coords = mni_coords(~rmv);
                     ft_data.label = ft_data.label(~rmv);
                     
                     fprintf('done!\nRemoved %d contacts\n\n', sum(rmv))
@@ -465,7 +471,7 @@ for p = 1:numel(protocols)
                     end
                     
                     % save elec info
-                    save([save_dir, 'channel_info.mat'], 'channel_info', 'soz', 'interictal_cont', 'labels', 'chann_idx', 'regions');
+                    save([save_dir, 'channel_info.mat'], 'channel_info', 'soz', 'interictal_cont', 'labels', 'chann_idx', 'regions', 'mni_coords');
                     
                     
                     %% CAR

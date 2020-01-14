@@ -1,0 +1,9 @@
+# Ignore IMages
+*.pdf
+*.eps
+*.api
+*.png
+
+# Ignore data
+*.csv
+*.mat
