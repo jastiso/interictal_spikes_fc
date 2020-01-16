@@ -1,5 +1,6 @@
-function [warnings] = preproc(thr, release_dir, top_dir, release, protocols, warnings, errors)
+function [] = preproc(thr, release_dir, top_dir, release, protocols, warnings, errors)
 % main preprocessing script for RAM data - helps with parralelizing
+
 eval(['cd ', release_dir '/protocols'])
 
 for p = 1:numel(protocols)

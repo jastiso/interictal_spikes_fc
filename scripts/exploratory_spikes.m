@@ -188,7 +188,7 @@ end
 
 % plot
 figure(1); clf
-set(gcf, 'Position',  [100, 100, 800, 2000]); 
+set(gcf, 'Position',  [100, 100, 800, 1200]); 
 plot(x,data(:,st:(st + l - 1)), 'k', 'linewidth', 1.5); hold on
 xlabel('Time (s)')
 ylim([min(min(data(:,st:(st + l - 1)))), max(max(data(:,st:(st + l - 1))))])
