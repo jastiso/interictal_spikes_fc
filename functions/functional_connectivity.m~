@@ -1,8 +1,9 @@
-function [] = functional_connectivity(protocols, errors, table_names, freqs, bands, band_names, measure_names, pmin, pmax, spike_win, win_length)
+function [] = functional_connectivity(protocols, release, release_dir, top_dir, errors, table_names, freqs, bands, band_names, measure_names, pmin, pmax, spike_win, win_length, bad_datasets)
 % main function for functional connectivity - helps with paralelizing
 
 % useful constants
 nBand = size(bands,1);
+nMeasures = numel(measure_names);
 
 for p = 1:numel(protocols)
     protocol = protocols{p};
@@ -88,7 +89,7 @@ for p = 1:numel(protocols)
                     ft_data.sampleinfo = ft_data.sampleinfo(~reject,:);
                     
                     if ~isempty(ft_data.trial)
-                        try
+                         try
                             nElec = numel(ft_data.label);
                             nPair = (nElec^2-nElec)/2;
                             
@@ -388,11 +389,11 @@ for p = 1:numel(protocols)
                                                         cellfun(@(x) any(strcmp(x, curr)), labelcmb(:,2));
                                                     % get strengths
                                                     str(cnt:(cnt+nTrial-1)) = mean(curr_data(k, elec_idx, :),2);
-                                                    if numel(soz_idx) > 0
+                                                    if ~any(soz_idx)
                                                         soz_str(cnt:(cnt+nTrial-1)) = mean(curr_data(k, elec_idx & soz_idx,:),2);
                                                         not_soz_str(cnt:(cnt+nTrial-1)) = mean(curr_data(k, elec_idx & ~soz_idx,:),2);
                                                     end
-                                                    if numel(spike_idx) > 0
+                                                    if ~any(spike_idx)
                                                         spike_str(cnt:(cnt+nTrial-1)) = mean(curr_data(k, elec_idx & spike_idx,:),2);
                                                         not_spike_str(cnt:(cnt+nTrial-1)) = mean(curr_data(k, elec_idx & ~spike_idx,:),2);
                                                     end
@@ -468,11 +469,11 @@ for p = 1:numel(protocols)
                                                     
                                                     % get strengths
                                                     str(cnt:(cnt+nTrial-1)) = mean(curr_data(:, elec_idx),2);
-                                                    if sum(soz_idx) > 0
+                                                    if ~any(soz_idx)
                                                         soz_str(cnt:(cnt+nTrial-1)) = mean(curr_data(:, elec_idx & soz_idx),2);
                                                         not_soz_str(cnt:(cnt+nTrial-1)) = mean(curr_data(:, elec_idx & ~soz_idx),2);
                                                     end
-                                                    if sum(spike_idx) > 0
+                                                    if ~any(spike_idx)
                                                         spike_str(cnt:(cnt+nTrial-1)) = mean(curr_data(:, elec_idx & spike_idx),2);
                                                         not_spike_str(cnt:(cnt+nTrial-1)) = mean(curr_data(:, elec_idx & ~spike_idx),2);
                                                     end
@@ -517,11 +518,11 @@ for p = 1:numel(protocols)
                                                     
                                                     % get strengths
                                                     str(cnt:(cnt+nTrial-1)) = mean(curr_data(:, elec_idx),2);  
-                                                    if numel(soz_idx_dir) > 0
+                                                    if ~any(soz_idx_dir)
                                                         soz_str(cnt:(cnt+nTrial-1)) = mean(curr_data(:, elec_idx & soz_idx_dir),2);
                                                         not_soz_str(cnt:(cnt+nTrial-1)) = mean(curr_data(:, elec_idx & ~soz_idx_dir),2);
                                                     end
-                                                    if numel(spike_idx_dir) > 0
+                                                    if ~any(spike_idx_dir)
                                                         spike_str(cnt:(cnt+nTrial-1)) = mean(curr_data(:, elec_idx & spike_idx_dir),2);
                                                         not_spike_str(cnt:(cnt+nTrial-1)) = mean(curr_data(:, elec_idx & ~spike_idx_dir),2);
                                                     end
@@ -554,8 +555,6 @@ for p = 1:numel(protocols)
                                             % add things that are constant
                                             % across elecs
                                             band_order = repmat({'broadband'}, nTrial*nElec, 1);
-                                            
-                                            % add things that are consistent
                                             meas_order = repmat({curr_measure}, nTrial*nElec, 1);
                                             subj_order = repmat({subj}, nTrial*nElec, 1);
                                             exper_order = repmat({exper}, nTrial*nElec, 1);
@@ -575,10 +574,10 @@ for p = 1:numel(protocols)
                                         spike_nums, age_order, gender_order, race_order, hand_order, x, y, z, 'VariableNames', table_names)];
                                 end
                             end
-                        catch ME
-                            errors(end+1).files = [subj, '_', exper, '_', sess];
-                            errors(end).message = ME.message;
-                        end
+%                         catch ME
+%                             errors(end+1).files = [subj, '_', exper, '_', sess];
+%                             errors(end).message = ME.message;
+%                         end
                     end
                 end
             end

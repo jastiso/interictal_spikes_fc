@@ -29,7 +29,6 @@ band_names = [{'theta'}, {'alpha'}, {'beta'}, {'gamma'}, {'hg'}];
 
 %fc measures
 measure_names = [{'coh'}, {'plv'}, {'aec'}, {'xcorr'}, {'ar'}, {'pac'}];
-nMeasures = numel(measure_names);
 %parameters
 pmin = 1; pmax = 1; % order for AR model
 spike_win = 0.05; %for loading spike data
@@ -48,8 +47,8 @@ parfor r = 1:numel(releases)
     folders = {folders([folders.isdir]).name};
     protocols = folders(cellfun(@(x) ~contains(x, '.'), folders));
     
-    functional_connectivity(protocols, errors, table_names, freqs, bands, ...
-        band_names, measure_names, pmin, pmax, spike_win, win_length)
+    functional_connectivity(protocols, release, release_dir, top_dir, errors, table_names, freqs, bands, ...
+        band_names, measure_names, pmin, pmax, spike_win, win_length, bad_datasets)
 end
 
 
@@ -59,7 +58,7 @@ for r = 1:numel(releases)
     release = releases(r);
     release_dir = [top_dir, 'release', release '/'];
     
-    curr_err = load([release_dir, 'protocols/errors.mat']);
+    curr_err = load([release_dir, 'protocols/fc_errors.mat']);
     
     errors_all= [errors_all, curr_err.errors];
 end

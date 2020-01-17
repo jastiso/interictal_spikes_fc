@@ -1,8 +1,9 @@
-function [] = functional_connectivity(protocols, errors, table_names, freqs, bands, band_names, measure_names, pmin, pmax, spike_win, win_length)
+function [] = functional_connectivity(protocols, release, release_dir, top_dir, errors, table_names, freqs, bands, band_names, measure_names, pmin, pmax, spike_win, win_length, bad_datasets)
 % main function for functional connectivity - helps with paralelizing
 
 % useful constants
 nBand = size(bands,1);
+nMeasures = numel(measure_names);
 
 for p = 1:numel(protocols)
     protocol = protocols{p};
@@ -343,7 +344,7 @@ for p = 1:numel(protocols)
                                     cellfun(@(x) any(strcmp(x, interictal_cont)), labelcmb(:,2));
                                 spike_idx_dir = cellfun(@(x) any(strcmp(x, interictal_cont)), labelcmb_dir(:,1)) |...
                                     cellfun(@(x) any(strcmp(x, interictal_cont)), labelcmb_dir(:,2));
-
+                                
                                 for i = 1:nMeasures
                                     curr_measure = measure_names{i};
                                     switch curr_measure
@@ -388,11 +389,11 @@ for p = 1:numel(protocols)
                                                         cellfun(@(x) any(strcmp(x, curr)), labelcmb(:,2));
                                                     % get strengths
                                                     str(cnt:(cnt+nTrial-1)) = mean(curr_data(k, elec_idx, :),2);
-                                                    if ~any(soz_idx)
+                                                    if any(soz_idx)
                                                         soz_str(cnt:(cnt+nTrial-1)) = mean(curr_data(k, elec_idx & soz_idx,:),2);
                                                         not_soz_str(cnt:(cnt+nTrial-1)) = mean(curr_data(k, elec_idx & ~soz_idx,:),2);
                                                     end
-                                                    if ~any(spike_idx)
+                                                    if any(spike_idx)
                                                         spike_str(cnt:(cnt+nTrial-1)) = mean(curr_data(k, elec_idx & spike_idx,:),2);
                                                         not_spike_str(cnt:(cnt+nTrial-1)) = mean(curr_data(k, elec_idx & ~spike_idx,:),2);
                                                     end
@@ -433,7 +434,7 @@ for p = 1:numel(protocols)
                                             gender_order = repmat({gender}, nTrial*nElec*nBand, 1);
                                             hand_order = repmat({hand}, nTrial*nElec*nBand, 1);
                                             race_order = repmat({race}, nTrial*nElec*nBand, 1);
-
+                                            
                                         case [{'xcorr'}, {'ar'}]
                                             % will becoms columns in dataframe
                                             str = nan(nElec*nTrial,1);
@@ -468,11 +469,11 @@ for p = 1:numel(protocols)
                                                     
                                                     % get strengths
                                                     str(cnt:(cnt+nTrial-1)) = mean(curr_data(:, elec_idx),2);
-                                                    if ~any(soz_idx)
+                                                    if any(soz_idx)
                                                         soz_str(cnt:(cnt+nTrial-1)) = mean(curr_data(:, elec_idx & soz_idx),2);
                                                         not_soz_str(cnt:(cnt+nTrial-1)) = mean(curr_data(:, elec_idx & ~soz_idx),2);
                                                     end
-                                                    if ~any(spike_idx)
+                                                    if any(spike_idx)
                                                         spike_str(cnt:(cnt+nTrial-1)) = mean(curr_data(:, elec_idx & spike_idx),2);
                                                         not_spike_str(cnt:(cnt+nTrial-1)) = mean(curr_data(:, elec_idx & ~spike_idx),2);
                                                     end
@@ -516,12 +517,12 @@ for p = 1:numel(protocols)
                                                     spike_flag = cellfun(@(x) any(chan_idx == x), spike_chan);
                                                     
                                                     % get strengths
-                                                    str(cnt:(cnt+nTrial-1)) = mean(curr_data(:, elec_idx),2);  
-                                                    if ~any(soz_idx_dir)
+                                                    str(cnt:(cnt+nTrial-1)) = mean(curr_data(:, elec_idx),2);
+                                                    if any(soz_idx_dir)
                                                         soz_str(cnt:(cnt+nTrial-1)) = mean(curr_data(:, elec_idx & soz_idx_dir),2);
                                                         not_soz_str(cnt:(cnt+nTrial-1)) = mean(curr_data(:, elec_idx & ~soz_idx_dir),2);
                                                     end
-                                                    if ~any(spike_idx_dir)
+                                                    if any(spike_idx_dir)
                                                         spike_str(cnt:(cnt+nTrial-1)) = mean(curr_data(:, elec_idx & spike_idx_dir),2);
                                                         not_spike_str(cnt:(cnt+nTrial-1)) = mean(curr_data(:, elec_idx & ~spike_idx_dir),2);
                                                     end
@@ -554,8 +555,6 @@ for p = 1:numel(protocols)
                                             % add things that are constant
                                             % across elecs
                                             band_order = repmat({'broadband'}, nTrial*nElec, 1);
-                                            
-                                            % add things that are consistent
                                             meas_order = repmat({curr_measure}, nTrial*nElec, 1);
                                             subj_order = repmat({subj}, nTrial*nElec, 1);
                                             exper_order = repmat({exper}, nTrial*nElec, 1);
