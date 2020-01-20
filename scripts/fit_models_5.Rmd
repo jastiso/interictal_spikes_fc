@@ -122,8 +122,21 @@ for (s in subj){
     
     # get network level strength separated by soz and not soz
     net_data <- group_by(node_data, sess_exper, time, spike_num, bin_spike, fc_measure, band, band_measure) %>%
-      dplyr::summarise(str = mean(str, na.rm=TRUE), str_soz = mean(str_soz, na.rm=TRUE), str_not_soz = mean(str_not_soz, na.rm=TRUE),
-                       str_spike = mean(str_spike, na.rm=TRUE), str_not_spike = mean(str_not_spike, na.rm=TRUE), power = mean(power))
+      dplyr::summarise(str = mean(str, na.rm=TRUE), str_spike = mean(str_spike, na.rm=TRUE), 
+                       str_not_spike = mean(str_not_spike, na.rm=TRUE), power = mean(power))
+    # for soz networks, you can't average over all elecs, have to break them up
+    tmp_soz = group_by(node_data, elec_in_soz, sess_exper, time, spike_num, bin_spike, fc_measure, band, band_measure) %>%
+      dplyr::summarise(str_soz = mean(str_soz, na.rm=TRUE), str_not_soz = mean(str_not_soz, na.rm=TRUE))
+    # remove not soz elecs from str_soz, and visa versa
+    tmp_soz$str_soz[tmp_soz$elec_in_soz == 0] <- NA
+    tmp_soz$str_not_soz[tmp_soz$elec_in_soz == 1] <- NA
+    # now colapse over elec_in_soz
+    tmp_soz <- group_by(node_data, sess_exper, time, spike_num, bin_spike, fc_measure, band, band_measure) %>%
+      dplyr::summarise(str_soz = mean(str_soz, na.rm=TRUE), str_not_soz = mean(str_not_soz, na.rm=TRUE))
+    # now merge on shared features (subj, band, time, etc)
+    net_data = merge(net_data, tmp_soz, by = c('sess_exper', 'time', 'spike_num', 'bin_spike', "fc_measure", 'band', 'band_measure'))
+
+    
     # add constants
     net_data[const_vars] = node_data[const_vars][1,]
     
