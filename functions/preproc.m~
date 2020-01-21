@@ -131,13 +131,9 @@ for p = 1:numel(protocols)
                         chann = labels{i};
                         eval(['chann_idx(i) = channel_info.contacts.', chann, '.channel;'])
                         eval(['regions{i} = channel_info.contacts.', chann, '.atlases.ind.region;'])
-                        try
-                            eval(['mni_coords{i} = [channel_info.contacts.', chann, '.atlases.mni.x,',... 
+                        eval(['mni_coords{i} = [channel_info.contacts.', chann, '.atlases.mni.x,',... 
                             'channel_info.contacts.', chann, '.atlases.mni.y,',...
                             'channel_info.contacts.', chann, '.atlases.mni.z];'])
-                        catch
-                            mni_coords{i} = [NaN, NaN, NaN];
-                        end
                     end
                     % sort
                     [chann_idx, sort_idx] = sort(chann_idx, 'ascend');
@@ -443,11 +439,6 @@ for p = 1:numel(protocols)
                     for j = 1:nTrial
                         ft_data.trial{j} = ft_data.trial{j}(~rmv, :);
                     end
-                    % need to remove the same channels for every dataset in
-                    % all subjects...load old rmv if possible.
-                    
-                    
-                    % actually remove elecs
                     chann_idx = chann_idx(~rmv);
                     regions = regions(~rmv);
                     mni_coords = mni_coords(~rmv);

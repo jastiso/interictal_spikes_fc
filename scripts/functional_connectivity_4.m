@@ -62,5 +62,5 @@ for r = 1:numel(releases)
     
     errors_all= [errors_all, curr_err.errors];
 end
-save([top_dir, 'errors.mat'], 'errors_all')
+save([top_dir, 'fc_errors.mat'], 'errors_all')
 
