@@ -28,21 +28,25 @@ win = 1
 ## Functions
 ```{r}
 get_beta <- function(d, ys, f) {
-  # check if multiple sess and exper
-  if (length(unique(d$sess_exper)) > 1) {
-    f <- paste(f, 'sess_exper', sep = ' + ')
-    # to prevent empty factor errors in model
-    d$sess_exper = as.character(d$sess_exper)
-  }
   # scale x's
   d['spike_num'] <- scale(d['spike_num'])
   d['power'] <- scale(d['power'])
   
   # fit models for every given predictor
   for (y in ys){
+    # remove nan rows
+    d = d[!is.na(d[y]),]
+    
+    # check if multiple sess and exper
+    if (length(unique(d$sess_exper)) > 1) {
+      f_full <- paste(f, 'sess_exper', sep = ' + ')
+      # to prevent empty factor errors in model
+      d$sess_exper = as.character(d$sess_exper)
+    }
+    
     beta_bin_name = paste(y, 'beta_bin', sep = '_')
     beta_num_name = paste(y, 'beta_num', sep = '_')
-    if (all(is.na(d[y]))){ # check for nans
+    if (dim(d[y])[1] == 0){ # check for nans
       d[beta_bin_name] <- NaN
       d[beta_num_name] <- NaN
     } else {
@@ -50,7 +54,8 @@ get_beta <- function(d, ys, f) {
       d[y] <- scale(d[y])
       
       # fit
-      try({fit <- rlm(as.formula(paste(y, f, sep='')), data=d, maxit=40)
+      try({fit <- rlm(as.formula(paste(y, f_full, sep='')), data=d, maxit=100)
+      #print(paste(y, d$band[1], d$fc_measure[1], d$region[1]))
       d[beta_bin_name] <- fit$coefficients['bin_spikeTRUE']
       d[beta_num_name] <- fit$coefficients['spike_num']})
 
@@ -106,8 +111,9 @@ colnames(node_betas) = col_names
 for (s in subj){
   # load strengths from matlab
   curr_csv <- paste(RAM_dir, 'FC/', s, '/win_', as.character(win), '/fc_data.csv', sep = '')
-  if (file.exists(curr_csv)){
-    node_data <- read.csv(curr_csv, colClasses=c(gender='character', hand='character', race='numeric', age='numeric'))
+  if (file.exists(curr_csv) ){
+    node_data <- read.csv(curr_csv, header = TRUE, sep = ",", stringsAsFactors = FALSE,
+                          colClasses=c(gender='character', hand='character', race='numeric', age='numeric', spike_num='numeric'))
   }
   if (dim(node_data)[1] > 0){
     print(paste('Subj', s)) 
@@ -176,7 +182,7 @@ for (s in subj){
                              str_not_soz_beta_num = str_not_soz_beta_num[1], str_spike_beta_num = str_spike_beta_num[1], str_beta_num = str_beta_num[1],
                              str_not_spike_beta_num = str_not_spike_beta_num[1], fc_measure = fc_measure[1], band = band[1], region = region[1], x = x[1],
                              y = y[1], z = z[1])
-          curr_node_beta[const_vars] <- node_data[const_vars][1,]
+          curr_node_beta[const_vars] <- net_data[const_vars][1,]
           
         #  concetenate
         node_betas <- suppressWarnings(bind_rows(curr_node_beta, node_betas)) # silence warnings about converting factors to strings
