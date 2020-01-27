@@ -11,7 +11,7 @@ knitr::opts_chunk$set(echo = TRUE)
 rm(list=ls())
 
 if (!require("pacman")) install.packages("pacman")
-pacman::p_load(ggplot2, dplyr, lm.beta, RColorBrewer, nationalparkcolors, rjson, reticulate, gridExtra, wesanderson, MASS, outliers, lmerTest)
+pacman::p_load(ggplot2, dplyr, lm.beta, RColorBrewer, nationalparkcolors, rjson, reticulate, gridExtra, wesanderson, MASS, outliers, lmerTest, stringr)
 
 # set up python for later
 use_python("/Users/stiso/anaconda3/bin/python") # path to python binary
@@ -35,29 +35,43 @@ get_beta <- function(d, ys, f) {
   # fit models for every given predictor
   for (y in ys){
     # remove nan rows
-    d = d[!is.na(d[y]),]
+    d_lm = d[!is.na(d[y]),]
     
     # check if multiple sess and exper
-    if (length(unique(d$sess_exper)) > 1) {
+    if (length(unique(d_lm$sess_exper)) > 1) {
       f_full <- paste(f, 'sess_exper', sep = ' + ')
-      # to prevent empty factor errors in model
-      d$sess_exper = as.character(d$sess_exper)
+      # to prevent prevent factor level errors
+      d_lm$sess_exper = as.factor(d_lm$sess_exper)
+    } else {
+      f_full <- f
     }
     
-    beta_bin_name = paste(y, 'beta_bin', sep = '_')
-    beta_num_name = paste(y, 'beta_num', sep = '_')
-    if (dim(d[y])[1] == 0){ # check for nans
+    beta_bin_name <- paste(y, 'beta_bin', sep = '_')
+    beta_num_name <- paste(y, 'beta_num', sep = '_')
+    if (dim(d_lm[y])[1] == 0){ # check for nans
       d[beta_bin_name] <- NaN
       d[beta_num_name] <- NaN
     } else {
       # scale y
-      d[y] <- scale(d[y])
+      d_lm[y] <- scale(d_lm[y])
+      
+      # make spike a factor - prevent factor level errors
+      d_lm$bin_spike <- as.factor(d_lm$bin_spike)
+      # for debugging
+      #print(paste(y, d_lm$band[1], d_lm$fc_measure[1], d_lm$region[1]))
       
       # fit
-      try({fit <- rlm(as.formula(paste(y, f_full, sep='')), data=d, maxit=100)
-      #print(paste(y, d$band[1], d$fc_measure[1], d$region[1]))
-      d[beta_bin_name] <- fit$coefficients['bin_spikeTRUE']
-      d[beta_num_name] <- fit$coefficients['spike_num']})
+      # check for singular matrix (only two values for spike_num)
+      if (length(unique(d_lm$spike_num)) > 2){
+        try({fit <- rlm(as.formula(paste(y, f_full, sep='')), data=d_lm, maxit=500)
+        d[beta_bin_name] <- fit$coefficients['bin_spikeTRUE']
+        d[beta_num_name] <- fit$coefficients['spike_num']})
+      } else {
+        f_full <- str_remove(f_full, fixed("+ bin_spike"))
+        try({fit <- rlm(as.formula(paste(y, f_full, sep='')), data=d_lm, maxit=500)
+        d[beta_bin_name] <- fit$coefficients['bin_spikeTRUE']
+        d[beta_num_name] <- NaN})
+      }
 
     }
   }
@@ -98,7 +112,7 @@ form <- ' ~ power + bin_spike + spike_num'
 ys = c('str', 'str_soz', 'str_not_soz', 'str_spike', 'str_not_spike')
 
 # final df
-col_names <- c("fc_measure", "band", 'band_measure', "str_beta_bin", "str_beta_num", "soz", "subj", "hand", "age", "gender", "race", 'n_tp')
+col_names <- c("fc_measure", "band", 'band_measure', "str_beta_bin", "str_beta_num", "subj", "hand", "age", "gender", "race", 'n_tp')
 net_betas <- data.frame(matrix(ncol = length(col_names), nrow = 0))
 colnames(net_betas) = col_names
 col_names = c("subj", "fc_measure", "band", 'band_measure', "str_soz_beta_bin", "str_not_soz_beta_bin", "str_spike_beta_bin", 
@@ -123,10 +137,18 @@ for (s in subj){
     node_data <- mutate(node_data, sess_exper = paste(sess, exper, sep = '_'))
     # add binary spike
     node_data$bin_spike = node_data$spike_num > 0
+    # there shouldn't be any negative numbers, but if there are replace them with nan
+    if (any(node_data$spike_num[complete.cases(node_data$spike_num)] < 0)){
+      node_data$spike_num[node_data$spike_num < 0] = NaN
+      warning("This dataset had negative spike numbers: check the spreadsheet")
+      next
+    }
     # log transform
     node_data$spike_num[node_data$spike_num != 0] = log10(node_data$spike_num[node_data$spike_num != 0])
-    # drop hg phase locking
+    # drop hg phase locking - PLV not interpretable for wide band signals
     node_data <- filter(node_data, band_measure != "hg_plv")
+    # remove duplicate time points, if present
+    node_data <- node_data %>% distinct()
     
     # get network level strength separated by soz and not soz
     net_data <- group_by(node_data, sess_exper, time, spike_num, bin_spike, fc_measure, band, band_measure) %>%
@@ -194,6 +216,15 @@ for (s in subj){
 write.csv(net_betas, file = paste(RAM_dir, 'group_analysis/network_stats.csv', sep=''))
 write.csv(node_betas, file = paste(RAM_dir, 'group_analysis/node_stats.csv', sep=''))
 
+```
+
+```{r}
+# for debugging
+tmp = dplyr::filter(node_data, region == "parahippocampal", band_measure == "theta_plv")
+d1 = dplyr::filter(tmp, elec=="LITG1")
+y = "str_not_spike"
+f = form
+d = d1
 ```
 
 Tests on betas
