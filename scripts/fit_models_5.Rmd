@@ -137,10 +137,15 @@ for (s in subj){
     node_data <- mutate(node_data, sess_exper = paste(sess, exper, sep = '_'))
     # add binary spike
     node_data$bin_spike = node_data$spike_num > 0
-    # there shouldn't be any negative numbers, but if there are replace them with nan
+    # there shouldn't be any negative numbers, but if there are skip
     if (any(node_data$spike_num[complete.cases(node_data$spike_num)] < 0)){
       node_data$spike_num[node_data$spike_num < 0] = NaN
       warning("This dataset had negative spike numbers: check the spreadsheet")
+      next
+    }
+    # there shouldn't be any NaNs, but if there are skip
+    if (any(is.nan(node_data$spike_num))){
+      warning("This dataset had NaN spike numbers: check the spreadsheet")
       next
     }
     # log transform
@@ -232,48 +237,63 @@ Tests on betas
 ```{r}
 net_data = read.csv('/Volumes/bassett-data/Jeni/RAM/group_analysis/net_data_clean.csv')
 net_data$race = as.factor(net_data$race)
-net_data$soz = as.factor(net_data$soz)
-
-# separate into soz vs not
-sub_net_data = net_data[net_data$soz != 2,]
-full_net_data = net_data[net_data$soz == 2,]
+soz_data = read.csv('/Volumes/bassett-data/Jeni/RAM/group_analysis/net_soz_data_clean.csv')
+soz_data$race = as.factor(soz_data$race)
+soz_data <- mutate(soz_data, band_measure = paste(band, fc_measure, sep = '_'))
+spike_data = read.csv('/Volumes/bassett-data/Jeni/RAM/group_analysis/net_spike_data_clean.csv')
+spike_data$race = as.factor(spike_data$race)
+spike_data <- mutate(spike_data, band_measure = paste(band, fc_measure, sep = '_'))
 
 # binary
-fc = unique(net_data$fc_measure)
+# number of spikes
+fc = unique(net_data$band)
 for (m in fc){
   print(m)
-  if (m == 'ar' | m == 'xcorr'){
-    fit = lmer(str_beta_bin ~ soz + race + gender + hand + age + (1|subj), data=dplyr::filter(sub_net_data, fc_measure == m))
+    fit = lmer(soz_beta_bin ~  SOZ*fc_measure + race + gender + hand + age + (1|subj), data=dplyr::filter(soz_data, band == m))
     print(anova(fit))
-  } else {
-    fit = lmer(str_beta_bin ~ band*soz + race + gender + hand + age + (1|subj), data=dplyr::filter(sub_net_data, fc_measure == m))
-    print(anova(fit))
-  }
 }
 ```
 
 ```{r}
 # number of spikes
+fc = unique(net_data$band)
 for (m in fc){
   print(m)
-  if (m == 'ar' | m == 'xcorr'){
-    fit = lmer(str_beta_num ~ soz + race + gender + hand + age + (1|subj), data=dplyr::filter(sub_net_data, fc_measure == m))
+    fit = lmer(soz_beta_num ~  SOZ*fc_measure + race + gender + hand + age + (1|subj), data=dplyr::filter(soz_data, band == m))
     print(anova(fit))
-  } else {
-    fit = lmer(str_beta_num ~ band*soz + race + gender + hand + age + (1|subj), data=dplyr::filter(sub_net_data, fc_measure == m))
-    print(anova(fit))
-  }
 }
 ```
+```{r}
+# binary, for spikes
+fc = unique(net_data$band)
+for (m in fc){
+  print(m)
+    fit = lmer(spike_beta_bin ~  spike*fc_measure + race + gender + hand + age + (1|subj), data=dplyr::filter(spike_data, band == m))
+    print(anova(fit))
+}
+
+```
+```{r}
+# for spikes
+# number of spikes
+fc = unique(net_data$band)
+for (m in fc){
+  print(m)
+    fit = lmer(spike_beta_num ~  spike*fc_measure + race + gender + hand + age + (1|subj), data=dplyr::filter(spike_data, band == m))
+    print(anova(fit))
+}
+
+```
+
 
 ```{r}
-bfc = unique(full_net_data$band_measure)
+bfc = unique(net_data$band_measure)
 bin_ps = list()
 bin_ts = list()
 bin_df = list()
 for (m in bfc){
   print(m)
-  curr <- filter(full_net_data, band_measure == m)
+  curr <- filter(net_data, band_measure == m)
   stat <- t.test(curr$str_beta_bin)
   print(stat)
   bin_ps = c(bin_ps, stat$p.value)
@@ -285,13 +305,14 @@ bin_stats = data.frame(p = p.adjust(bin_ps, method="bonferroni"), t = unlist(bin
 bin_stats
 
 ```
+
 ```{r}
 num_ps = list()
 num_ts = list()
 num_df = list()
 for (m in bfc){
   print(m)
-  curr <- filter(full_net_data, band_measure == m)
+  curr <- filter(net_data, band_measure == m)
   stat <- t.test(curr$str_beta_num)
   print(stat)
   num_ps = c(num_ps, stat$p.value)
@@ -304,6 +325,25 @@ num_stats
 
 ```
 ```
+ # Relationship with behavior
+ 
+```{r}
+net_task_data = read.csv('/Volumes/bassett-data/Jeni/RAM/group_analysis/net_task_data_clean.csv')
+net_task_data$race = as.factor(net_task_data$race)
+net_task_data <- mutate(net_task_data, band_measure = paste(band, fc_measure, sep = '_'))
+
+# binary
+# number of spikes
+fc = unique(net_data$band_measure)
+for (m in fc){
+  print(m)
+    fit = lm(nav ~  str_beta_num*fc_measure + race + gender + hand + age, data=dplyr::filter(net_task_data, band_measure == m))
+    print(anova(fit))
+}
+```
+
+
+
 ## EDA
 
 ```{python}

@@ -32,7 +32,7 @@ measure_names = [{'coh'}, {'plv'}, {'aec'}, {'xcorr'}, {'ar'}, {'pac'}];
 %parameters
 pmin = 1; pmax = 1; % order for AR model
 spike_win = 0.05; %for loading spike data
-win_length = 1; % in seconds
+win_length = 3; % in seconds
 
 parfor r = 1:numel(releases)
     release = releases(r);

@@ -90,7 +90,7 @@ for p = 1:numel(protocols)
                     ft_data.sampleinfo = ft_data.sampleinfo(~reject,:);
                     
                     if ~isempty(ft_data.trial)
-                        %try
+                        try
                             nElec = numel(ft_data.label);
                             nPair = (nElec^2-nElec)/2;
                             
@@ -575,10 +575,10 @@ for p = 1:numel(protocols)
                                         spike_nums, age_order, gender_order, race_order, hand_order, x, y, z, 'VariableNames', table_names)];
                                 end
                             end
-%                         catch ME
-%                             errors(end+1).files = [subj, '_', exper, '_', sess];
-%                             errors(end).message = ME.message;
-%                         end
+                        catch ME
+                            errors(end+1).files = [subj, '_', exper, '_', sess];
+                            errors(end).message = ME.message;
+                        end
                     end
                 end
             end
