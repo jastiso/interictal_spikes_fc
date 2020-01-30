@@ -21,7 +21,7 @@ py_config() # check it is using the specified version
 RAM_dir = '/Volumes/bassett-data/Jeni/RAM/'
 
 # parameters
-win = 1
+win = 3
 
 ```
 
@@ -218,8 +218,8 @@ for (s in subj){
 }
 
 # save betas
-write.csv(net_betas, file = paste(RAM_dir, 'group_analysis/network_stats.csv', sep=''))
-write.csv(node_betas, file = paste(RAM_dir, 'group_analysis/node_stats.csv', sep=''))
+write.csv(net_betas, file = paste(RAM_dir, 'group_analysis/win_', as.character(win), '/network_stats.csv', sep=''))
+write.csv(node_betas, file = paste(RAM_dir, 'group_analysis/win_', as.character(win), '/node_stats.csv', sep=''))
 
 ```
 
@@ -235,12 +235,12 @@ d = d1
 Tests on betas
 
 ```{r}
-net_data = read.csv('/Volumes/bassett-data/Jeni/RAM/group_analysis/net_data_clean.csv')
+net_data = read.csv('/Volumes/bassett-data/Jeni/RAM/group_analysis/win_', as.character(win), 'net_data_clean.csv')
 net_data$race = as.factor(net_data$race)
-soz_data = read.csv('/Volumes/bassett-data/Jeni/RAM/group_analysis/net_soz_data_clean.csv')
+soz_data = read.csv('/Volumes/bassett-data/Jeni/RAM/group_analysis/win_', as.character(win), 'net_soz_data_clean.csv')
 soz_data$race = as.factor(soz_data$race)
 soz_data <- mutate(soz_data, band_measure = paste(band, fc_measure, sep = '_'))
-spike_data = read.csv('/Volumes/bassett-data/Jeni/RAM/group_analysis/net_spike_data_clean.csv')
+spike_data = read.csv('/Volumes/bassett-data/Jeni/RAM/group_analysis/win_', as.character(win), 'net_spike_data_clean.csv')
 spike_data$race = as.factor(spike_data$race)
 spike_data <- mutate(spike_data, band_measure = paste(band, fc_measure, sep = '_'))
 
@@ -252,6 +252,8 @@ for (m in fc){
     fit = lmer(soz_beta_bin ~  SOZ*fc_measure + race + gender + hand + age + (1|subj), data=dplyr::filter(soz_data, band == m))
     print(anova(fit))
 }
+
+length(unique(net_betas$subj))
 ```
 
 ```{r}
@@ -324,25 +326,33 @@ num_stats = data.frame(p = p.adjust(num_ps, method="bonferroni"), t = unlist(num
 num_stats
 
 ```
-```
+
  # Relationship with behavior
  
 ```{r}
-net_task_data = read.csv('/Volumes/bassett-data/Jeni/RAM/group_analysis/net_task_data_clean.csv')
+net_task_data = read.csv('/Volumes/bassett-data/Jeni/RAM/group_analysis/win_', as.character(win), 'net_task_data_clean.csv')
 net_task_data$race = as.factor(net_task_data$race)
 net_task_data <- mutate(net_task_data, band_measure = paste(band, fc_measure, sep = '_'))
 
 # binary
 # number of spikes
-fc = unique(net_data$band_measure)
+fc = unique(net_task_data$fc_measure)
 for (m in fc){
   print(m)
-    fit = lm(nav ~  str_beta_num*fc_measure + race + gender + hand + age, data=dplyr::filter(net_task_data, band_measure == m))
+  if (m != 'ar' && m != 'xcorr'){
+    fit = lm(nav ~  str_beta_num*band + race + gender + hand + age, data=dplyr::filter(net_task_data, fc_measure == m))
     print(anova(fit))
+  } else {
+    fit = lm(nav ~  str_beta_num + race + gender + hand + age, data=dplyr::filter(net_task_data, fc_measure == m))
+    print(anova(fit))
+  }
 }
 ```
 
-
+```{r}
+fit = lm(nav ~  str_beta_num*band + race + gender + hand + age, data=dplyr::filter(net_task_data, fc_measure == 'aec'))
+summary(fit)
+```
 
 ## EDA
 
