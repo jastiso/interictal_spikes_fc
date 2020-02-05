@@ -21,7 +21,7 @@ py_config() # check it is using the specified version
 RAM_dir = '/Volumes/bassett-data/Jeni/RAM/'
 
 # parameters
-win = 3
+win = 1
 
 ```
 
@@ -87,7 +87,7 @@ words
 
 ```{r}
 # get subjects from all releases
-releases <- c('1', '2', '3')
+releases <- c('1', '2')
 subj <- list()
 for (r in releases){
   curr_info <- paste(RAM_dir, 'release', r, '/protocols/r1.json', sep='')
@@ -235,12 +235,12 @@ d = d1
 Tests on betas
 
 ```{r}
-net_data = read.csv('/Volumes/bassett-data/Jeni/RAM/group_analysis/win_', as.character(win), 'net_data_clean.csv')
+net_data = read.csv(paste('/Volumes/bassett-data/Jeni/RAM/group_analysis/win_', as.character(win), '/net_data_clean.csv',sep=''))
 net_data$race = as.factor(net_data$race)
-soz_data = read.csv('/Volumes/bassett-data/Jeni/RAM/group_analysis/win_', as.character(win), 'net_soz_data_clean.csv')
+soz_data = read.csv(paste('/Volumes/bassett-data/Jeni/RAM/group_analysis/win_', as.character(win), '/net_soz_data_clean.csv',sep=''))
 soz_data$race = as.factor(soz_data$race)
 soz_data <- mutate(soz_data, band_measure = paste(band, fc_measure, sep = '_'))
-spike_data = read.csv('/Volumes/bassett-data/Jeni/RAM/group_analysis/win_', as.character(win), 'net_spike_data_clean.csv')
+spike_data = read.csv(paste('/Volumes/bassett-data/Jeni/RAM/group_analysis/win_', as.character(win), '/net_spike_data_clean.csv',sep=''))
 spike_data$race = as.factor(spike_data$race)
 spike_data <- mutate(spike_data, band_measure = paste(band, fc_measure, sep = '_'))
 
@@ -253,7 +253,7 @@ for (m in fc){
     print(anova(fit))
 }
 
-length(unique(net_betas$subj))
+length(unique(net_data$subj))
 ```
 
 ```{r}
@@ -330,7 +330,7 @@ num_stats
  # Relationship with behavior
  
 ```{r}
-net_task_data = read.csv('/Volumes/bassett-data/Jeni/RAM/group_analysis/win_', as.character(win), 'net_task_data_clean.csv')
+net_task_data = read.csv(paste('/Volumes/bassett-data/Jeni/RAM/group_analysis/win_', as.character(win), '/net_task_data_clean.csv', sep=''))
 net_task_data$race = as.factor(net_task_data$race)
 net_task_data <- mutate(net_task_data, band_measure = paste(band, fc_measure, sep = '_'))
 
@@ -340,8 +340,8 @@ fc = unique(net_task_data$fc_measure)
 for (m in fc){
   print(m)
   if (m != 'ar' && m != 'xcorr'){
-    fit = lm(nav ~  str_beta_num*band + race + gender + hand + age, data=dplyr::filter(net_task_data, fc_measure == m))
-    print(anova(fit))
+    fit = with(data=dplyr::filter(net_task_data, fc_measure == m), aov(nav ~  str_beta_num*band + race + gender + hand + age + Error(subj) ))
+    print(summary(fit))
   } else {
     fit = lm(nav ~  str_beta_num + race + gender + hand + age, data=dplyr::filter(net_task_data, fc_measure == m))
     print(anova(fit))
@@ -349,10 +349,6 @@ for (m in fc){
 }
 ```
 
-```{r}
-fit = lm(nav ~  str_beta_num*band + race + gender + hand + age, data=dplyr::filter(net_task_data, fc_measure == 'aec'))
-summary(fit)
-```
 
 ## EDA
 

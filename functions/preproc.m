@@ -127,10 +127,12 @@ for p = 1:numel(protocols)
                     chann_idx = zeros(nChan, 1);
                     regions = cell(nChan,1);
                     mni_coords = cell(nChan,1);
+                    elec_type = cell(nChan,1);
                     for i = 1:numel(labels)
                         chann = labels{i};
                         eval(['chann_idx(i) = channel_info.contacts.', chann, '.channel;'])
                         eval(['regions{i} = channel_info.contacts.', chann, '.atlases.ind.region;'])
+                        eval(['elec_type{i} = channel_info.contacts.', chann, '.type;'])
                         try
                             eval(['mni_coords{i} = [channel_info.contacts.', chann, '.atlases.mni.x,',... 
                             'channel_info.contacts.', chann, '.atlases.mni.y,',...
@@ -163,6 +165,7 @@ for p = 1:numel(protocols)
                     chann_idx = chann_idx(idx);
                     regions = regions(idx);
                     mni_coords = mni_coords(idx);
+                    elec_type = elec_type(idx);
                     nChan = numel(labels);
                     
                     %% Get event info
@@ -429,7 +432,9 @@ for p = 1:numel(protocols)
                     end
                     chann_idx = chann_idx(~bad_cont_idx);
                     ft_data.label = ft_data.label(~bad_cont_idx);
-                    
+                    regions = regions(~bad_cont_idx);
+                    mni_coords = mni_coords(~bad_cont_idx);
+                    elec_type = elec_type(~bad_cont_idx);
                     
                     % additional checking with my own algorthim. This will pick up elecs that
                     % are only bad during this particular chunk of recording. Also I don't know
@@ -451,6 +456,7 @@ for p = 1:numel(protocols)
                     chann_idx = chann_idx(~rmv);
                     regions = regions(~rmv);
                     mni_coords = mni_coords(~rmv);
+                    elec_type = elec_type(~rmv);
                     ft_data.label = ft_data.label(~rmv);
                     
                     fprintf('done!\nRemoved %d contacts\n\n', sum(rmv))
@@ -482,7 +488,7 @@ for p = 1:numel(protocols)
                     end
                     
                     % save elec info
-                    save([save_dir, 'channel_info.mat'], 'channel_info', 'soz', 'interictal_cont', 'labels', 'chann_idx', 'regions', 'mni_coords');
+                    save([save_dir, 'channel_info.mat'], 'channel_info', 'soz', 'interictal_cont', 'labels', 'chann_idx', 'regions', 'mni_coords', 'elec_type');
                     
                     
                     %% CAR
