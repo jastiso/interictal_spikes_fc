@@ -90,7 +90,7 @@ for p = 1:numel(protocols)
                     ft_data.sampleinfo = ft_data.sampleinfo(~reject,:);
                     
                     if ~isempty(ft_data.trial)
-%                         try
+                         try
                             nElec = numel(ft_data.label);
                             nPair = (nElec^2-nElec)/2;
                             
@@ -373,7 +373,7 @@ for p = 1:numel(protocols)
                                             x = zeros(nElec*nTrial*nBand,1);
                                             y = zeros(nElec*nTrial*nBand,1);
                                             z = zeros(nElec*nTrial*nBand,1);
-                                            type = cell(nElec*nTrial*nBandl,1);
+                                            type = cell(nElec*nTrial*nBand,1);
                                             spike_nums = nan(nElec*nTrial*nBand,1);
                                             time = nan(nElec*nTrial*nBand,1);
                                             control_pow = nan(nElec*nTrial*nBand,1);
@@ -408,7 +408,7 @@ for p = 1:numel(protocols)
                                                     x(cnt:(cnt+nTrial-1)) = mni_coords{j}(1);
                                                     y(cnt:(cnt+nTrial-1)) = mni_coords{j}(2);
                                                     z(cnt:(cnt+nTrial-1)) = mni_coords{j}(3);
-                                                    type(cnt:(cnt+nTrial-1)) = elec_type{j};
+                                                    type(cnt:(cnt+nTrial-1)) = elec_type(j);
 
                                                     % get other spike vars
                                                     spike_nums(cnt:(cnt+nTrial-1)) = spike_num;
@@ -490,7 +490,7 @@ for p = 1:numel(protocols)
                                                     x(cnt:(cnt+nTrial-1)) = mni_coords{j}(1);
                                                     y(cnt:(cnt+nTrial-1)) = mni_coords{j}(2);
                                                     z(cnt:(cnt+nTrial-1)) = mni_coords{j}(3);
-                                                    type(cnt:(cnt+nTrial-1)) = elec_type{j};
+                                                    type(cnt:(cnt+nTrial-1)) = elec_type(j);
 
                                                     % get other spike vars
                                                     spike_nums(cnt:(cnt+nTrial-1)) = spike_num;
@@ -540,7 +540,7 @@ for p = 1:numel(protocols)
                                                     x(cnt:(cnt+nTrial-1)) = mni_coords{j}(1);
                                                     y(cnt:(cnt+nTrial-1)) = mni_coords{j}(2);
                                                     z(cnt:(cnt+nTrial-1)) = mni_coords{j}(3);
-                                                    type(cnt:(cnt+nTrial-1)) = elec_type{j};
+                                                    type(cnt:(cnt+nTrial-1)) = elec_type(j);
 
                                                     % get other spike vars
                                                     spike_nums(cnt:(cnt+nTrial-1)) = spike_num;
@@ -580,10 +580,10 @@ for p = 1:numel(protocols)
                                         spike_nums, age_order, gender_order, race_order, hand_order, x, y, z, type, 'VariableNames', table_names)];
                                 end
                             end
-%                         catch ME
-%                             errors(end+1).files = [subj, '_', exper, '_', sess];
-%                             errors(end).message = ME.message;
-%                         end
+                        catch ME
+                            errors(end+1).files = [subj, '_', exper, '_', sess];
+                            errors(end).message = ME.message;
+                        end
                     end
                 end
             end

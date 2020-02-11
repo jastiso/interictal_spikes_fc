@@ -87,7 +87,7 @@ words
 
 ```{r}
 # get subjects from all releases
-releases <- c('1', '2')
+releases <- c('1', '2', '3')
 subj <- list()
 for (r in releases){
   curr_info <- paste(RAM_dir, 'release', r, '/protocols/r1.json', sep='')
@@ -258,10 +258,10 @@ length(unique(net_data$subj))
 
 ```{r}
 # number of spikes
-fc = unique(net_data$band)
+fc = unique(net_data$fc_measure)
 for (m in fc){
   print(m)
-    fit = lmer(soz_beta_num ~  SOZ*fc_measure + race + gender + hand + age + (1|subj), data=dplyr::filter(soz_data, band == m))
+    fit = lmer(soz_beta_num ~  SOZ*band + race + gender + hand + age + (1|subj), data=dplyr::filter(soz_data, fc_measure == m))
     print(anova(fit))
 }
 ```
@@ -278,10 +278,10 @@ for (m in fc){
 ```{r}
 # for spikes
 # number of spikes
-fc = unique(net_data$band)
+fc = unique(net_data$fc_measure)
 for (m in fc){
   print(m)
-    fit = lmer(spike_beta_num ~  spike*fc_measure + race + gender + hand + age + (1|subj), data=dplyr::filter(spike_data, band == m))
+    fit = lmer(spike_beta_num ~  spike*band + race + gender + hand + age + (1|subj), data=dplyr::filter(spike_data, fc_measure == m))
     print(anova(fit))
 }
 
