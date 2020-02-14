@@ -74,23 +74,23 @@ for p = 1:numel(protocols)
                     load([data_dir, 'spike_info_', num2str(spike_win), '.mat'])
                     load([data_dir, 'artifact.mat'])
                     load([data_dir, 'demographics.mat'])
-                    
-                    % check if this subect has clean data
-                    reject = zeros(numel(ft_data.trial),1);
-                    for i = 1:numel(ft_data.trial)
-                        curr_ext = [subj, '_' exper, '_', sess, '_', num2str(i)];
-                        reject(i) = any(strcmp(curr_ext, bad_datasets));
-                    end
-                    fprintf('\nRejected %d datasets\n', sum(reject))
-                    
-                    ft_data.trial = ft_data.trial(~reject);
-                    ft_data.time = ft_data.time(~reject);
-                    out_clean = out_clean(~reject);
-                    artifact_all = artifact_all(~reject);
-                    ft_data.sampleinfo = ft_data.sampleinfo(~reject,:);
-                    
-                    if ~isempty(ft_data.trial)
-                         try
+                    try
+                        % check if this subect has clean data
+                        reject = zeros(numel(ft_data.trial),1);
+                        for i = 1:numel(ft_data.trial)
+                            curr_ext = [subj, '_' exper, '_', sess, '_', num2str(i)];
+                            reject(i) = any(strcmp(curr_ext, bad_datasets));
+                        end
+                        fprintf('\nRejected %d datasets\n', sum(reject))
+                        
+                        ft_data.trial = ft_data.trial(~reject);
+                        ft_data.time = ft_data.time(~reject);
+                        out_clean = out_clean(~reject);
+                        artifact_all = artifact_all(~reject);
+                        ft_data.sampleinfo = ft_data.sampleinfo(~reject,:);
+                        
+                        if ~isempty(ft_data.trial)
+                            
                             nElec = numel(ft_data.label);
                             nPair = (nElec^2-nElec)/2;
                             
@@ -409,7 +409,7 @@ for p = 1:numel(protocols)
                                                     y(cnt:(cnt+nTrial-1)) = mni_coords{j}(2);
                                                     z(cnt:(cnt+nTrial-1)) = mni_coords{j}(3);
                                                     type(cnt:(cnt+nTrial-1)) = elec_type(j);
-
+                                                    
                                                     % get other spike vars
                                                     spike_nums(cnt:(cnt+nTrial-1)) = spike_num;
                                                     
@@ -491,7 +491,7 @@ for p = 1:numel(protocols)
                                                     y(cnt:(cnt+nTrial-1)) = mni_coords{j}(2);
                                                     z(cnt:(cnt+nTrial-1)) = mni_coords{j}(3);
                                                     type(cnt:(cnt+nTrial-1)) = elec_type(j);
-
+                                                    
                                                     % get other spike vars
                                                     spike_nums(cnt:(cnt+nTrial-1)) = spike_num;
                                                     
@@ -541,7 +541,7 @@ for p = 1:numel(protocols)
                                                     y(cnt:(cnt+nTrial-1)) = mni_coords{j}(2);
                                                     z(cnt:(cnt+nTrial-1)) = mni_coords{j}(3);
                                                     type(cnt:(cnt+nTrial-1)) = elec_type(j);
-
+                                                    
                                                     % get other spike vars
                                                     spike_nums(cnt:(cnt+nTrial-1)) = spike_num;
                                                     
@@ -580,10 +580,11 @@ for p = 1:numel(protocols)
                                         spike_nums, age_order, gender_order, race_order, hand_order, x, y, z, type, 'VariableNames', table_names)];
                                 end
                             end
-                        catch ME
-                            errors(end+1).files = [subj, '_', exper, '_', sess];
-                            errors(end).message = ME.message;
+                            
                         end
+                    catch ME
+                        errors(end+1).files = [subj, '_', exper, '_', sess];
+                        errors(end).message = ME.message;
                     end
                 end
             end

@@ -245,11 +245,10 @@ spike_data$race = as.factor(spike_data$race)
 spike_data <- mutate(spike_data, band_measure = paste(band, fc_measure, sep = '_'))
 
 # binary
-# number of spikes
 fc = unique(net_data$band)
 for (m in fc){
   print(m)
-    fit = lmer(soz_beta_bin ~  SOZ*fc_measure + race + gender + hand + age + (1|subj), data=dplyr::filter(soz_data, band == m))
+    fit = lmer(soz_beta_bin ~  SOZ*fc_measure + race + gender + hand + age + (1|fc_measure), data=dplyr::filter(soz_data, band == m))
     print(anova(fit))
 }
 
@@ -258,13 +257,16 @@ length(unique(net_data$subj))
 
 ```{r}
 # number of spikes
-fc = unique(net_data$fc_measure)
+fc = unique(net_data$band)
 for (m in fc){
   print(m)
-    fit = lmer(soz_beta_num ~  SOZ*band + race + gender + hand + age + (1|subj), data=dplyr::filter(soz_data, fc_measure == m))
+    fit = lmer(soz_beta_num ~  SOZ*fc_measure + race + gender + hand + age + (1|fc_measure), data=dplyr::filter(soz_data, band == m))
     print(anova(fit))
 }
 ```
+
+
+
 ```{r}
 # binary, for spikes
 fc = unique(net_data$band)
@@ -327,6 +329,25 @@ num_stats
 
 ```
 
+```{r}
+soz_ps = list()
+soz_ts = list()
+soz_df = list()
+for (m in bfc){
+  print(m)
+  curr <- filter(soz_data, band_measure == m)
+  stat <- t.test(filter(curr, SOZ == 'within')$soz_beta_num, filter(curr, SOZ == 'outside')$soz_beta_num, paired=TRUE)
+  print(stat)
+  soz_ps = c(soz_ps, stat$p.value)
+  soz_ts = c(soz_ts, stat$statistic)
+  soz_df = c(soz_df, stat$parameter)
+}
+
+soz_stats = data.frame(p = unlist(soz_ps), t = unlist(soz_ts), df = unlist(soz_df), measure = bfc, sig = p.adjust(soz_ps, method="bonferroni") < 0.05)
+soz_stats
+
+```
+
  # Relationship with behavior
  
 ```{r}
@@ -340,8 +361,8 @@ fc = unique(net_task_data$fc_measure)
 for (m in fc){
   print(m)
   if (m != 'ar' && m != 'xcorr'){
-    fit = with(data=dplyr::filter(net_task_data, fc_measure == m), aov(nav ~  str_beta_num*band + race + gender + hand + age + Error(subj) ))
-    print(summary(fit))
+    fit = lmer(data=dplyr::filter(net_task_data, fc_measure == m), TH ~  str_beta_num + race + gender + hand + age + (1|band) )
+    print(anova(fit))
   } else {
     fit = lm(nav ~  str_beta_num + race + gender + hand + age, data=dplyr::filter(net_task_data, fc_measure == m))
     print(anova(fit))
