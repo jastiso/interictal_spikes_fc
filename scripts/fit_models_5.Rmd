@@ -116,7 +116,7 @@ col_names <- c("fc_measure", "band", 'band_measure', "str_beta_bin", "str_beta_n
 net_betas <- data.frame(matrix(ncol = length(col_names), nrow = 0))
 colnames(net_betas) = col_names
 col_names = c("subj", "fc_measure", "band", 'band_measure', "str_soz_beta_bin", "str_not_soz_beta_bin", "str_spike_beta_bin", 
-              "str_not_spike_beta_bin","str_soz_beta_num", "str_not_soz_beta_num", "str_spike_beta_num", 'x', 'y', 'z', 
+              "str_not_spike_beta_bin","str_soz_beta_num", "str_not_soz_beta_num", "str_spike_beta_num", 'x', 'y', 'z', 'type',
               "str_not_spike_beta_num", "elec", "region", "n_tp", "elec_in_soz", "elec_spike", "age", "gender", "race", "hand" )
 node_betas <- data.frame(matrix(ncol = length(col_names), nrow = 0))
 colnames(node_betas) = col_names
@@ -208,7 +208,7 @@ for (s in subj){
                              str_not_spike_beta_bin = str_not_spike_beta_bin[1], str_beta_bin = str_beta_bin[1], str_soz_beta_num = str_soz_beta_num[1], 
                              str_not_soz_beta_num = str_not_soz_beta_num[1], str_spike_beta_num = str_spike_beta_num[1], str_beta_num = str_beta_num[1],
                              str_not_spike_beta_num = str_not_spike_beta_num[1], fc_measure = fc_measure[1], band = band[1], region = region[1], x = x[1],
-                             y = y[1], z = z[1])
+                             y = y[1], z = z[1], type = type[1])
           curr_node_beta[const_vars] <- net_data[const_vars][1,]
           
         #  concetenate
