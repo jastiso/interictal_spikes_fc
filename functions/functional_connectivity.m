@@ -74,7 +74,7 @@ for p = 1:numel(protocols)
                     load([data_dir, 'spike_info_', num2str(spike_win), '.mat'])
                     load([data_dir, 'artifact.mat'])
                     load([data_dir, 'demographics.mat'])
-                    try
+                    %try
                         % check if this subect has clean data
                         reject = zeros(numel(ft_data.trial),1);
                         for i = 1:numel(ft_data.trial)
@@ -201,6 +201,7 @@ for p = 1:numel(protocols)
                                 % band limited, time resolved
                                 fprintf('\nStarting Hilbert transform\n')
                                 aec = zeros(nBand, nPair, nTrial);
+                                aec_ortho = zeros(nBand, nPair, nTrial);
                                 plv = nan(nBand, nPair, nTrial);
                                 bp_all_bands = cell(nBand,1);
                                 for i = 1:nBand
@@ -222,10 +223,19 @@ for p = 1:numel(protocols)
                                     
                                     % amp corr
                                     fprintf('\namplitude envelope correlation...\n')
-                                    % do I need to orthogonalize?
+                                    % unorthogonalized
                                     for j = 1:nTrial
                                         full_corr = corr(abs(bp_data.trial{j}'));
                                         aec(i,:,j) = full_corr(upper_tri);
+                                    end
+                                    
+                                    % orthogonalized Brookes et al., 2012, 2014
+                                    % if z1 and z2 are normalized so that
+                                    % mean(abs(zi)^2) = 1, then we replace
+                                    % z2 with z2 - R(c)*z1, where R(c) is
+                                    % the real part of coherence
+                                    for j = 1:nTrial
+                                        aec_ortho(i,:,j) = get_aec_ortho(bp_data.trial{j});
                                     end
                                     
                                     % plv
@@ -318,6 +328,7 @@ for p = 1:numel(protocols)
                                 
                                 % aec
                                 save([save_dir, 'amp_env_corr.mat'], 'aec', 'bands', 'labelcmb', 'fc_header', 'spike_idx')
+                                save([save_dir, 'amp_env_corr_ortho.mat'], 'aec_ortho', 'bands', 'labelcmb', 'fc_header', 'spike_idx')
                                 
                                 % plv
                                 save([save_dir, 'phase_lock_val.mat'], 'plv', 'bands', 'labelcmb', 'fc_header', 'spike_idx')
@@ -349,7 +360,7 @@ for p = 1:numel(protocols)
                                 for i = 1:nMeasures
                                     curr_measure = measure_names{i};
                                     switch curr_measure
-                                        case [{'coh'}, {'plv'}, {'aec'}]
+                                        case [{'coh'}, {'plv'}, {'aec'}, {'aec_ortho'}]
                                             % get measure of interest
                                             if strcmp(curr_measure, 'coh')
                                                 curr_data = C;
@@ -357,6 +368,8 @@ for p = 1:numel(protocols)
                                                 curr_data = plv;
                                             elseif strcmp(curr_measure, 'aec')
                                                 curr_data = aec;
+                                            elseif strcmp(curr_measure, 'aec_ortho')
+                                                curr_data = aec_ortho;
                                             end
                                             
                                             % will becoms columns in dataframe
@@ -582,10 +595,10 @@ for p = 1:numel(protocols)
                             end
                             
                         end
-                    catch ME
-                        errors(end+1).files = [subj, '_', exper, '_', sess];
-                        errors(end).message = ME.message;
-                    end
+%                     catch ME
+%                         errors(end+1).files = [subj, '_', exper, '_', sess];
+%                         errors(end).message = ME.message;
+%                     end
                 end
             end
         end

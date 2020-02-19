@@ -28,7 +28,7 @@ bands = [4, 8; 9, 15; 16 25; 36, 70; 71, 150];
 band_names = [{'theta'}, {'alpha'}, {'beta'}, {'gamma'}, {'hg'}];
 
 %fc measures
-measure_names = [{'coh'}, {'plv'}, {'aec'}, {'xcorr'}, {'ar'}, {'pac'}];
+measure_names = [{'coh'}, {'plv'}, {'aec'}, {'aec_ortho'}, {'xcorr'}, {'ar'}, {'pac'}];
 %parameters
 pmin = 1; pmax = 1; % order for AR model
 spike_win = 0.05; %for loading spike data

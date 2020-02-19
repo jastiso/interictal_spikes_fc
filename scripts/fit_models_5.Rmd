@@ -225,9 +225,10 @@ write.csv(node_betas, file = paste(RAM_dir, 'group_analysis/win_', as.character(
 
 ```{r}
 # for debugging
-tmp = dplyr::filter(node_data, region == "parahippocampal", band_measure == "theta_plv")
-d1 = dplyr::filter(tmp, elec=="LITG1")
-y = "str_not_spike"
+#tmp = dplyr::filter(node_data, region == "parahippocampal", band_measure == "theta_plv")
+d1 = dplyr::filter(net_data, band_measure == "theta_plv")
+#d1 = dplyr::filter(tmp, elec=="LITG1")
+y = "str"
 f = form
 d = d1
 ```
