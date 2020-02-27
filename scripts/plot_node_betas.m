@@ -15,12 +15,18 @@ addpath('/Users/stiso/Documents/MATLAB/arfit/')
 % node data
 
 top_dir = '/Volumes/bassett-data/Jeni/RAM/';
-betas = readtable([top_dir, 'group_analysis/node_stats.csv']);
+win = 1;
+betas = readtable([top_dir, 'group_analysis/win_',  num2str(win), '/node_stats.csv']);
 beta_names = betas.Properties.VariableNames(cellfun(@(x) contains(x, 'beta'), betas.Properties.VariableNames));
 band_measures = unique(betas.band_measure);
 
+% convert coords to numbers
+betas.y = cellfun(@(x) str2double(x), betas.y);
+betas.x = cellfun(@(x) str2double(x), betas.x);
+betas.z = cellfun(@(x) str2double(x), betas.z);
+
 % fix subject with offset
-betas(strcmpi(betas.subj, 'R1004D'),:).y = betas(strcmpi(betas.subj, 'R1004D'),:).y - 150;
+betas(strcmpi(betas.subj, 'R1004D'),:).y =  betas(strcmpi(betas.subj, 'R1004D'),:).y - 150;
 betas(strcmpi(betas.subj, 'R1004D'),:).x = betas(strcmpi(betas.subj, 'R1004D'),:).x + 100;
         
 for i = 1:numel(beta_names)
@@ -28,7 +34,7 @@ for i = 1:numel(beta_names)
     
     for j = 1:numel(band_measures)
         curr_bm = band_measures{j};
-        node_file = [top_dir, 'group_analysis/', curr_name, '_', curr_bm, '.node'];
+        node_file = [top_dir, 'group_analysis/win_', num2str(win), '/', curr_name, '_', curr_bm, '.node'];
         curr_betas = betas(strcmpi(betas.band_measure,curr_bm),:);
         
         % remove nans
@@ -53,7 +59,7 @@ for i = 1:numel(beta_names)
         cont = [beta_names{i}, '_', band_measures{j}];
         
         BrainNet_MapCfg('/Users/stiso/Documents/MATLAB/BrainNetViewer_20171031/Data/SurfTemplate/BrainMesh_ICBM152_smoothed.nv',...
-            [top_dir, 'group_analysis/', cont, '.node'], '/Users/stiso/Documents/Code/interictal_spikes_fc/img/bnv_format.mat', ...
+            [top_dir, 'group_analysis/win_',  num2str(win), '/', cont, '.node'], '/Users/stiso/Documents/Code/interictal_spikes_fc/img/bnv_format.mat', ...
             [top_dir, 'img/bnv/', cont, '.jpg']);
     end
 end

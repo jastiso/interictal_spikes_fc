@@ -74,7 +74,7 @@ for p = 1:numel(protocols)
                     load([data_dir, 'spike_info_', num2str(spike_win), '.mat'])
                     load([data_dir, 'artifact.mat'])
                     load([data_dir, 'demographics.mat'])
-                    %try
+                    try
                         % check if this subect has clean data
                         reject = zeros(numel(ft_data.trial),1);
                         for i = 1:numel(ft_data.trial)
@@ -595,10 +595,10 @@ for p = 1:numel(protocols)
                             end
                             
                         end
-%                     catch ME
-%                         errors(end+1).files = [subj, '_', exper, '_', sess];
-%                         errors(end).message = ME.message;
-%                     end
+                    catch ME
+                        errors(end+1).files = [subj, '_', exper, '_', sess];
+                        errors(end).message = ME.message;
+                    end
                 end
             end
         end
