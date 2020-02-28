@@ -15,16 +15,7 @@ nEdge = (nElec^2-nElec)/2;
 norm_data = data'.*sqrt(size(data,2))./vecnorm(data');
 
 % get real value of coherency
-c = zeros(nEdge,1);
-cnt = 1;
-for i = 1:nElec
-    for j = (i+1):nElec
-        if j <= nElec
-            c(cnt) = real(mean(norm_data(:,i).*conj(norm_data(:,j))));
-            cnt = cnt + 1;
-        end
-    end
-end
+c = real(norm_data'*norm_data)./size(data,2);
 
 % pairwise corrs
 % for each normalized pair, z1 and z2, orthogonalize z2, get corr. average across z1
@@ -33,12 +24,10 @@ corr_ortho = zeros(nEdge,1);
 cnt = 1;
 for i = 1:nElec
     for j = (i+1):nElec
-        if j <= nElec
-            c1 = corr(abs(norm_data(:,i)).^2, abs(norm_data(:,j) - (c(cnt)*norm_data(:,i))).^2);
-            c2 = corr(abs(norm_data(:,j)).^2, abs(norm_data(:,i) - (c(cnt)*norm_data(:,j))).^2);
+            c1 = corr(abs(norm_data(:,i)).^2, abs(norm_data(:,j) - (c(i,j)*norm_data(:,i))).^2);
+            c2 = corr(abs(norm_data(:,j)).^2, abs(norm_data(:,i) - (c(i,j)*norm_data(:,j))).^2);
             corr_ortho(cnt) = mean([c1,c2]);
             cnt = cnt + 1;
-        end
     end
 end
 

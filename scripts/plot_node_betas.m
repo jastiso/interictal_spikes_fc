@@ -8,8 +8,7 @@ warning ON
 
 addpath(genpath('/Users/stiso/Documents/Code/interictal_spikes_fc/'))
 addpath('/Users/stiso/Documents/MATLAB/fieldtrip-20170830/')
-addpath('/Users/stiso/Documents/MATLAB/arfit/')
-
+addpath(genpath('/Users/stiso/Documents/MATLAB/BrainNetViewer_20171031/'))
 
 %% load
 % node data
@@ -59,7 +58,7 @@ for i = 1:numel(beta_names)
         cont = [beta_names{i}, '_', band_measures{j}];
         
         BrainNet_MapCfg('/Users/stiso/Documents/MATLAB/BrainNetViewer_20171031/Data/SurfTemplate/BrainMesh_ICBM152_smoothed.nv',...
-            [top_dir, 'group_analysis/win_',  num2str(win), '/', cont, '.node'], '/Users/stiso/Documents/Code/interictal_spikes_fc/img/bnv_format.mat', ...
+            [top_dir, 'group_analysis/win_',  num2str(win), '/', cont, '.node'], '/Users/stiso/Documents/Code/interictal_spikes_fc/img/bnv_format_sparse.mat', ...
             [top_dir, 'img/bnv/', cont, '.jpg']);
     end
 end
