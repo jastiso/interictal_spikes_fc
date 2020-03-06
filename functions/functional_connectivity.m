@@ -36,7 +36,7 @@ for p = 1:numel(protocols)
         end
         
         % check that we need data for this subj
-        if exist([top_dir, 'FC/release',release, '/', protocol, '/', subj, '/', 'win_', num2str(win_length), '/fc_data.csv'], 'file')
+        if ~exist([top_dir, 'FC/release',release, '/', protocol, '/', subj, '/', 'win_', num2str(win_length), '/fc_data.csv'], 'file')
             fprintf('\n******************************************\nStarting functional connectivity for subject %s...\n', subj)
             
             % get experiements
