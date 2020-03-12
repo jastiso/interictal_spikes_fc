@@ -1,18 +1,9 @@
-function [] = functional_connectivity(protocol, release, top_dir, subj, spike_win, win_length)
+function [] = functional_connectivity(protocol, release, top_dir, freqs, bands, band_names, measure_names, pmin, pmax, spike_win, win_length, bad_datasets)
 % main function for functional connectivity - helps with paralelizing
 
-release_dir = [top_dir, 'release', release '/'];
-
-% get global info struct
-fname = [release_dir 'protocols/', protocol, '.json'];
-fid = fopen(fname);
-raw = fread(fid);
-str = char(raw');
-fclose(fid);
-info = jsondecode(str);
-eval(['info = info.protocols.', protocol,';']);
-
-% useful variables
+% useful constants
+nBand = size(bands,1);
+nMeasures = numel(measure_names);
 table_names = [{'subj'}, {'exper'}, {'sess'}, {'time'}, {'power'}, {'fc_measure'}, {'band'}, {'str'},...
     {'str_soz'}, {'str_not_soz'}, {'str_spike'}, {'str_not_spike'}, {'elec'}, {'region'}, {'elec_in_soz'},...
     {'elec_has_spike'}, {'spike_num'}, {'age'}, {'gender'}, {'race'}, {'hand'}, {'x'}, {'y'}, {'z'}, {'type'}];
@@ -25,18 +16,6 @@ band_names = [{'theta'}, {'alpha'}, {'beta'}, {'gamma'}, {'hg'}];
 measure_names = [{'coh'}, {'plv'}, {'aec'}, {'aec_ortho'}, {'xcorr'}, {'ar'}, {'pac'}];
 %parameters
 pmin = 1; pmax = 1; % order for AR model
-% constants
-nBand = size(bands,1);
-nMeasures = numel(measure_names);
-% subjects not to use
-load([top_dir, 'bad_datasets.mat'])
-errors = struct('files', [], 'message', []);
-
-% make subject directory
-subj_dir = [top_dir, 'FC/release',release, '/', protocol, '/', subj, '/'];
-if ~exist(subj_dir, 'dir')
-    mkdir(subj_dir);
-end
 
 % initialize table
 power_vars = cellfun(@(x) ['power_', x], band_names, 'UniformOutput', false);
@@ -72,6 +51,7 @@ if ~exist([top_dir, 'FC/release',release, '/', protocol, '/', subj, '/', 'win_',
             % folders
             data_dir = [top_dir, 'processed/release',release, '/', protocol, '/', subj, '/', exper, '/', sess, '/'];
             save_dir = [top_dir, 'FC/release',release, '/', protocol, '/', subj, '/', exper, '/', sess, '/'];
+            subj_dir = [top_dir, 'FC/release',release, '/', protocol, '/', subj, '/'];
             img_dir = [top_dir, 'img/FC/release',release, '/', protocol, '/', subj, '/', exper, '/', sess, '/'];
             if ~exist(img_dir, 'dir')
                 mkdir(img_dir);
@@ -624,6 +604,6 @@ if ~exist([top_dir, 'FC/release',release, '/', protocol, '/', subj, '/', 'win_',
     end
 end
 
-save([subj_dir, 'fc_errors.mat'], 'errors');
+
 end
 
