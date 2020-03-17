@@ -9,7 +9,8 @@ addpath(genpath('/Users/stiso/Documents/Code/interictal_spikes_fc/'))
 addpath('/Users/stiso/Documents/MATLAB/fieldtrip-20170830/')
 addpath('/Users/stiso/Documents/MATLAB/arfit/')
 
-%%
+%% Run this on a remote machine (main FC calculation)
+
 
 % global variables
 top_dir = '/Volumes/bassett-data/Jeni/RAM/';
