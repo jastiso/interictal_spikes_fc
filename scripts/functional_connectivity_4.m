@@ -41,7 +41,7 @@ for r = 1:numel(releases)
         str = char(raw');
         fclose(fid);
         info = jsondecode(str);
-        eval(['info = info.protocols.', protocol,';']);
+        info = info.protocols.r1
         
         % get subjects
         subjects = fields(info.subjects);
@@ -55,6 +55,7 @@ end
 
 %% combine subjects with duplicates in release 1 and release 3
 
+protocol = 'r1';
 all_subjects = [];
 for r = 1:numel(releases)
     rel = releases(r);
@@ -180,7 +181,9 @@ errors_all = struct('files', [], 'message', []);
 for r = 1:numel(releases)
     release = releases(r);
     release_dir = [top_dir, 'release', release '/'];
-
+    folders = dir([release_dir '/protocols']);
+    folders = {folders([folders.isdir]).name};
+    protocols = folders(cellfun(@(x) ~contains(x, '.'), folders));
     for p = 1:numel(protocols)
         protocol = protocols{p};
         
@@ -198,9 +201,7 @@ for r = 1:numel(releases)
         for s = 1:numel(subjects)
             subj = subjects{s};
             subj_dir = [top_dir, 'FC/release',release, '/', protocol, '/', subj, '/'];
-            
             curr_err = load([release_dir, 'protocols/fc_errors.mat']);
-            
             errors_all= [errors_all, curr_err.errors];
         end
     end
