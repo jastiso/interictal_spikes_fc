@@ -1,4 +1,4 @@
-function [] = functional_connectivity(protocol, release, top_dir, subj, spike_win, win_length)
+function [] = functional_connectivity(protocol, release, top_dir, subj, detector, spike_win, win_length)
 % main function for functional connectivity - helps with paralelizing
 
 release_dir = [top_dir, 'release', release '/'];

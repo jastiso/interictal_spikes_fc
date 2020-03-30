@@ -18,14 +18,16 @@ eval(['cd ', top_dir])
 releases = ['1', '2', '3'];
 
 % which detector are you using? '' for Janca et al, 'delphos' for delphos
-detector = 'delphos';
+detector = '_delphos';
 
 % parameters for eliminated spikes
 min_chan = 3; % minimum number of channels that need to be recruited
+win = 0.05; % size of the window to look for the minimum number of channels, in seconds
 % detector specific params
 if strcmp(detector, '')
-    win = 0.05; % size of the window to look for the minimum number of channels, in seconds
     discharge_tol=0.005; % taken from spike function
+else
+    spike_srate = 200;
 end
 
 n_spikes = [];
@@ -105,12 +107,12 @@ for r = 1:numel(releases)
                         end
                         
                         nTrial = numel(ft_data.trial);
-                        
+                        %initialize
+                        out_clean = [];
+                        marker = [];
                         % get spikes
                         if strcmp(detector,'')
-                            %initialize
-                            out_clean = [];
-                            marker = [];
+                            
                             for j = 1:nTrial
                                 % initialize
                                 out_clean(j).pos = 0;
@@ -122,25 +124,24 @@ for r = 1:numel(releases)
                                 try
                                     [out,MARKER] = ...
                                         spike_detector_hilbert_v16_byISARG(ft_data.trial{j}', header.sample_rate);
-
+                                    
                                     % eliminate some spikes
                                     include_length = win;%.300*MARKER.fs;
                                     nSamp = size(MARKER.d,1);
                                     nSpike = numel(out.pos);
                                     kept_spike = false(size(out.pos));
-
+                                    
                                     for i = 1:nSpike
                                         curr_pos = out.pos(i);
-                                        curr_chan = out.chan(i);
-
+                                        
                                         %if kept_spike(i) == 0
-                                            win_spike = (out.pos > curr_pos & out.pos < (curr_pos + win));
-                                            win_chan = out.chan(win_spike);
-
-                                            if numel(unique(win_chan)) >= min_chan
-                                                kept_spike(win_spike) = true;
-                                            end
-
+                                        win_spike = (out.pos > curr_pos & out.pos < (curr_pos + win));
+                                        win_chan = out.chan(win_spike);
+                                        
+                                        if numel(unique(win_chan)) >= min_chan
+                                            kept_spike(win_spike) = true;
+                                        end
+                                        
                                         %end
                                     end
                                     % select only good spikes
@@ -151,7 +152,7 @@ for r = 1:numel(releases)
                                     out_clean(j).con = out.con(kept_spike);
                                     n_spikes = [n_spikes; numel(kept_spike)/(size(MARKER.M,2)/MARKER.fs)];
                                     fprintf('This dataset had %d IEDs per second\n', numel(kept_spike)/(size(MARKER.M,1)/MARKER.fs))
-
+                                    
                                     % get new M
                                     m_clean = zeros(size(MARKER.M));
                                     for i=1:size(out_clean(j).pos,1)
@@ -161,13 +162,13 @@ for r = 1:numel(releases)
                                     marker(j).m_clean = m_clean;
                                     marker(j).d = MARKER.d;
                                     marker(j).fs = MARKER.fs;
-
+                                    
                                 catch ME
-
+                                    
                                     errors(end+1).files = [subj, '_', exper, '_', sess];
                                     errors(end).message = ME.message;
                                 end
-
+                                
                             end
                             % save
                             if ~isempty(out_clean)
@@ -175,22 +176,62 @@ for r = 1:numel(releases)
                             end
                         else
                             for j = 1:nTrial
+                                curr = [];
                                 try
-                                    results = Delphos_detector(ft_data.trial{j},ft_data.label, 'SEEG', ft_data.fsample, {'Spk'}, [], [], 'auto',[]);
-                                    out = results.markers;
+                                    results = Delphos_detector(ft_data.trial{j},ft_data.label, 'SEEG', ft_data.fsample, {'Spk'}, [], [], 40,[]);
+                                    curr.pos = [results.markers(:).position];
+                                    curr.dur = [results.markers(:).duration];
+                                    curr.value = [results.markers(:).value];
                                     % change channels to numbers
-                                    channels = cellfun(@(x) find(strcmp(x,ft_data.label)), {out.channels});
-                                    out.channels = channels;
+                                    channels = cellfun(@(x) find(strcmp(x,ft_data.label)), {results.markers.channels});
+                                    curr.chan = channels;
+                                  
+                                    % remove spurious spikes
+                                    % initialize
+                                    out_clean(j).pos = 0;
+                                    out_clean(j).dur = 0;
+                                    out_clean(j).chan = 0;
 
-                                    % jeep track of number of spikes
-                                    n_spikes = [n_spikes; numel(channels)];
+                                    include_length = win;%.300*MARKER.fs;
+                                    nSamp = size(ft_data.trial{j},2);
+                                    nSpike = numel(curr.pos);
+                                    kept_spike = false(size(curr.pos));
+                                    
+                                    for i = 1:nSpike
+                                        curr_pos = curr.pos(i);
+                                        
+                                        %if ~kept_spike(i)
+                                        win_spike = (curr.pos > curr_pos & curr.pos < (curr_pos + win));
+                                        win_chan = curr.chan(win_spike);
+                                        
+                                        if numel(unique(win_chan)) >= min_chan
+                                            kept_spike(win_spike) = true;
+                                        end
+                                        
+                                        %end
+                                    end
+                                    % select only good spikes
+                                    out_clean(j).pos = curr.pos(kept_spike);
+                                    out_clean(j).dur = curr.dur(kept_spike);
+                                    out_clean(j).chan = curr.chan(kept_spike);
+                                    n_spikes = [n_spikes; numel(kept_spike)/(size(ft_data.trial{j},2)*ft_data.fsample)];
+                                    fprintf('This dataset had %d IEDs per second\n', numel(kept_spike)/(size(ft_data.trial{j},2)/ft_data.fsample))
+                                    
+                                    
+                                    % get new M
+                                    m = zeros(nChan, ceil(size(ft_data.trial{j},2)/ft_data.fsample*spike_srate));
+                                    for i=1:numel(out_clean(j).pos)
+                                        m(out_clean(j).chan(i),round(out_clean(j).pos(i)*spike_srate))=1;
+                                    end
+                                    marker(j).m_clean = m;
+                                    marker(j).fs = spike_srate;
                                 catch ME
                                     errors(end+1).files = [subj, '_', exper, '_', sess];
                                     errors(end).message = ME.message;
                                 end
                                 % save
-                                if ~isempty(out)
-                                    save([save_dir, 'spike_info_', detector, '.mat'], 'win', 'out_clean', 'marker');
+                                if ~isempty(out_clean)
+                                    save([save_dir, 'spike_info', detector, '.mat'], 'out_clean', 'marker', 'min_chan', 'win');
                                 end
                             end
                         end
