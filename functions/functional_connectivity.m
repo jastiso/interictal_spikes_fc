@@ -51,7 +51,7 @@ if ~exist([top_dir, 'processed/release',release, '/', protocol, '/', subj, '/'],
 end
 
 % check that we need data for this subj
-if ~exist([top_dir, 'FC/release',release, '/', protocol, '/', subj, '/', 'win_', num2str(win_length), '/fc_data.csv'], 'file')
+if ~exist([top_dir, 'FC/release',release, '/', protocol, '/', subj, '/', 'win_', num2str(win_length), '/fc_data', detector, '.csv'], 'file')
     fprintf('\n******************************************\nStarting functional connectivity for subject %s...\n', subj)
     
     % get experiements
@@ -87,7 +87,11 @@ if ~exist([top_dir, 'FC/release',release, '/', protocol, '/', subj, '/', 'win_',
                 load([data_dir, 'data_clean.mat'])
                 load([data_dir, 'header.mat'])
                 load([data_dir, 'channel_info.mat'])
-                load([data_dir, 'spike_info_', num2str(spike_win), '.mat'])
+                if strcmp(detector, '_delphos')
+                    load([data_dir, 'spike_info', detector, '.mat'])
+                else
+                    load([data_dir, 'spike_info_', num2str(spike_win), '.mat'])
+                end
                 load([data_dir, 'artifact.mat'])
                 load([data_dir, 'demographics.mat'])
                 try
@@ -620,10 +624,10 @@ if ~exist([top_dir, 'FC/release',release, '/', protocol, '/', subj, '/', 'win_',
     end
     % save subject table
     if size(fc_table,1) > 0
-        writetable(fc_table, [subj_dir, 'win_', num2str(win_length), '/fc_data.csv'])
+        writetable(fc_table, [subj_dir, 'win_', num2str(win_length), '/fc_data', detector, '.csv'])
     end
 end
 
-save([subj_dir, 'fc_errors.mat'], 'errors');
+save([subj_dir, 'fc_errors', detector, '.mat'], 'errors');
 end
 

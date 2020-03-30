@@ -19,6 +19,7 @@ releases = ['1', '2', '3'];
 
 spike_win = 0.05; %for loading spike data
 win_length = 1; % in seconds
+detector = '_delphos';
 
 for r = 1:numel(releases)
     release = releases(r);
@@ -41,14 +42,14 @@ for r = 1:numel(releases)
         str = char(raw');
         fclose(fid);
         info = jsondecode(str);
-        info = info.protocols.r1
+        info = info.protocols.r1;
         
         % get subjects
         subjects = fields(info.subjects);
-        for s = 1:numel(subjects)
+        parfor s = 1:numel(subjects)
             subj = subjects{s};
             
-            functional_connectivity(protocol, release, top_dir, subj, spike_win, win_length)
+            functional_connectivity(protocol, release, top_dir, subj, detector, spike_win, win_length)
         end
     end
 end
@@ -123,8 +124,8 @@ for i = 1:numel(duplicates)
         % cycle through extras add thme onti the end, with the release appended
         %to session
         for r = 1:numel(curr_rels)
-            if exist([top_dir, 'FC/release',num2str(curr_rels{r}), '/', protocol, '/', subj, '/win_', num2str(win_length), '/fc_data.csv'], 'file')
-                new_table = readtable([top_dir, 'FC/release',num2str(curr_rels{r}), '/', protocol, '/', subj, '/win_', num2str(win_length), '/fc_data.csv']);
+            if exist([top_dir, 'FC/release',num2str(curr_rels{r}), '/', protocol, '/', subj, '/win_', num2str(win_length), '/fc_data', detector, '.csv'], 'file')
+                new_table = readtable([top_dir, 'FC/release',num2str(curr_rels{r}), '/', protocol, '/', subj, '/win_', num2str(win_length), '/fc_data', detector, '.csv']);
                 if new_table.age(1) == 0
                     new_table.age = NaN(numel(new_table.age), 1);
                 end
@@ -164,7 +165,7 @@ for i = 1:numel(duplicates)
                 fc_table = [fc_table; new_table];
                 
                 %when a new file is added, delete it
-                eval(['delete ', top_dir, 'FC/release',num2str(curr_rels{r}), '/', protocol, '/', subj, '/win_', num2str(win_length), '/fc_data.csv']);
+                eval(['delete ', top_dir, 'FC/release',num2str(curr_rels{r}), '/', protocol, '/', subj, '/win_', num2str(win_length), '/fc_data', detector, '.csv']);
             end
         end
         %save new file in top directory
@@ -201,10 +202,10 @@ for r = 1:numel(releases)
         for s = 1:numel(subjects)
             subj = subjects{s};
             subj_dir = [top_dir, 'FC/release',release, '/', protocol, '/', subj, '/'];
-            curr_err = load([release_dir, 'protocols/fc_errors.mat']);
+            curr_err = load([release_dir, 'protocols/fc_errors', detector, '.mat']);
             errors_all= [errors_all, curr_err.errors];
         end
     end
 end
-save([top_dir, 'fc_errors.mat'], 'errors_all')
+save([top_dir, 'fc_errors', detector, '.mat'], 'errors_all')
 
