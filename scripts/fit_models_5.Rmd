@@ -22,6 +22,7 @@ RAM_dir = '/Volumes/bassett-data/Jeni/RAM/'
 
 # parameters
 win = 1
+detector = ''
 
 ```
 
@@ -124,7 +125,7 @@ colnames(node_betas) = col_names
 # for each subject, load their data and fit some models
 for (s in subj){
   # load strengths from matlab
-  curr_csv <- paste(RAM_dir, 'FC/', s, '/win_', as.character(win), '/fc_data.csv', sep = '')
+  curr_csv <- paste(RAM_dir, 'FC/', s, '/win_', as.character(win), '/fc_data', detector, '.csv', sep = '')
   if (file.exists(curr_csv) ){
     node_data <- read.csv(curr_csv, header = TRUE, sep = ",", stringsAsFactors = FALSE,
                           colClasses=c(gender='character', hand='character', race='numeric', age='numeric', spike_num='numeric'))
@@ -143,7 +144,7 @@ for (s in subj){
         next
       }
       # there shouldn't be any NaNs, but if there are skip
-      if (any(is.nan(node_data$spike_num))){
+      if (any(is.nan(node_data$spike_num)) | any(is.na(node_data$spike_num))){
         warning("This dataset had NaN spike numbers: check the spreadsheet")
         next
       }
@@ -218,75 +219,22 @@ for (s in subj){
 }
 
 # save betas
-write.csv(net_betas, file = paste(RAM_dir, 'group_analysis/win_', as.character(win), '/network_stats.csv', sep=''))
-write.csv(node_betas, file = paste(RAM_dir, 'group_analysis/win_', as.character(win), '/node_stats.csv', sep=''))
+write.csv(net_betas, file = paste(RAM_dir, 'group_analysis/win_', as.character(win), '/network_stats', detector, '.csv', sep=''))
+write.csv(node_betas, file = paste(RAM_dir, 'group_analysis/win_', as.character(win), '/node_stats', detector, '.csv', sep=''))
 
-```
-
-```{r}
-# for debugging
-#tmp = dplyr::filter(node_data, region == "parahippocampal", band_measure == "theta_plv")
-d1 = dplyr::filter(net_data, band_measure == "theta_plv")
-#d1 = dplyr::filter(tmp, elec=="LITG1")
-y = "str"
-f = form
-d = d1
 ```
 
 Tests on betas
 
 ```{r}
-net_data = read.csv(paste('/Volumes/bassett-data/Jeni/RAM/group_analysis/win_', as.character(win), '/net_data_clean.csv',sep=''))
+net_data = read.csv(paste('/Volumes/bassett-data/Jeni/RAM/group_analysis/win_', as.character(win), '/net_data_clean', detector, '.csv',sep=''))
 net_data$race = as.factor(net_data$race)
-soz_data = read.csv(paste('/Volumes/bassett-data/Jeni/RAM/group_analysis/win_', as.character(win), '/net_soz_data_clean.csv',sep=''))
+soz_data = read.csv(paste('/Volumes/bassett-data/Jeni/RAM/group_analysis/win_', as.character(win), '/net_soz_data_clean', detector ,'.csv',sep=''))
 soz_data$race = as.factor(soz_data$race)
-soz_data <- mutate(soz_data, band_measure = paste(band, fc_measure, sep = '_'))
-spike_data = read.csv(paste('/Volumes/bassett-data/Jeni/RAM/group_analysis/win_', as.character(win), '/net_spike_data_clean.csv',sep=''))
+soz_data <- mutate(soz_data, band_measure = paste(Frequency.Band, Measure, sep = '_'))
+spike_data = read.csv(paste('/Volumes/bassett-data/Jeni/RAM/group_analysis/win_', as.character(win), '/net_spike_data_clean', detector, '.csv',sep=''))
 spike_data$race = as.factor(spike_data$race)
-spike_data <- mutate(spike_data, band_measure = paste(band, fc_measure, sep = '_'))
-
-# binary
-fc = unique(net_data$band)
-for (m in fc){
-  print(m)
-    fit = lmer(soz_beta_bin ~  SOZ*fc_measure + race + gender + hand + age + (1|fc_measure), data=dplyr::filter(soz_data, band == m))
-    print(anova(fit))
-}
-
-length(unique(net_data$subj))
-```
-
-```{r}
-# number of spikes
-fc = unique(net_data$band)
-for (m in fc){
-  print(m)
-    fit = lmer(soz_beta_num ~  SOZ*fc_measure + race + gender + hand + age + (1|fc_measure), data=dplyr::filter(soz_data, band == m))
-    print(anova(fit))
-}
-```
-
-
-
-```{r}
-# binary, for spikes
-fc = unique(net_data$band)
-for (m in fc){
-  print(m)
-    fit = lmer(spike_beta_bin ~  spike*fc_measure + race + gender + hand + age + (1|subj), data=dplyr::filter(spike_data, band == m))
-    print(anova(fit))
-}
-
-```
-```{r}
-# for spikes
-# number of spikes
-fc = unique(net_data$fc_measure)
-for (m in fc){
-  print(m)
-    fit = lmer(spike_beta_num ~  spike*band + race + gender + hand + age + (1|subj), data=dplyr::filter(spike_data, fc_measure == m))
-    print(anova(fit))
-}
+spike_data <- mutate(spike_data, band_measure = paste(Frequency.Band, Measure, sep = '_'))
 
 ```
 
@@ -331,46 +279,75 @@ num_stats
 ```
 
 ```{r}
+soz_bm = unique(soz_data$band_measure)
 soz_ps = list()
 soz_ts = list()
 soz_df = list()
-for (m in bfc){
+for (m in soz_bm){
   print(m)
-  curr <- filter(soz_data, band_measure == m)
-  stat <- t.test(filter(curr, SOZ == 'within')$soz_beta_num, filter(curr, SOZ == 'outside')$soz_beta_num, paired=TRUE)
+  curr <- dplyr::filter(soz_data, band_measure == m)
+  stat <- t.test(dplyr::filter(curr, SOZ == 'within')$soz_beta_num, dplyr::filter(curr, SOZ == 'outside')$soz_beta_num, paired=TRUE)
   print(stat)
   soz_ps = c(soz_ps, stat$p.value)
   soz_ts = c(soz_ts, stat$statistic)
   soz_df = c(soz_df, stat$parameter)
 }
 
-soz_stats = data.frame(p = unlist(soz_ps), t = unlist(soz_ts), df = unlist(soz_df), measure = bfc, sig = p.adjust(soz_ps, method="bonferroni") < 0.05)
+soz_stats = data.frame(p = unlist(soz_ps), t = unlist(soz_ts), df = unlist(soz_df), measure = soz_bm, sig = p.adjust(soz_ps, method="bonferroni") < 0.05)
 soz_stats
+
+```
+
+```{r}
+spike_bm = unique(spike_data$band_measure)
+spike_ps = list()
+spike_ts = list()
+spike_df = list()
+for (m in spike_bm){
+  print(m)
+  curr <- dplyr::filter(spike_data, band_measure == m)
+  stat <- t.test(dplyr::filter(curr, spike == 'within')$spike_beta_num, dplyr::filter(curr, spike == 'outside')$spike_beta_num, paired=TRUE)
+  print(stat)
+  spike_ps = c(spike_ps, stat$p.value)
+  spike_ts = c(spike_ts, stat$statistic)
+  spike_df = c(spike_df, stat$parameter)
+}
+
+spike_stats = data.frame(p = unlist(spike_ps), t = unlist(spike_ts), df = unlist(spike_df), measure = spike_bm, sig = p.adjust(spike_ps, method="bonferroni") < 0.05)
+spike_stats
 
 ```
 
  # Relationship with behavior
  
 ```{r}
-net_task_data = read.csv(paste('/Volumes/bassett-data/Jeni/RAM/group_analysis/win_', as.character(win), '/net_task_data_clean.csv', sep=''))
+net_task_data = read.csv(paste('/Volumes/bassett-data/Jeni/RAM/group_analysis/win_', as.character(win), '/net_task_data_clean', detector, '.csv', sep=''))
 net_task_data$race = as.factor(net_task_data$race)
-net_task_data <- mutate(net_task_data, band_measure = paste(band, fc_measure, sep = '_'))
+net_task_data <- mutate(net_task_data, band_measure = paste(Frequency.Band, Measure, sep = '_'))
 
 # binary
 # number of spikes
-fc = unique(net_task_data$fc_measure)
+fc = unique(net_task_data$band_measure)
 for (m in fc){
   print(m)
-  if (m != 'ar' && m != 'xcorr'){
-    fit = lmer(data=dplyr::filter(net_task_data, fc_measure == m), TH ~  str_beta_num + race + gender + hand + age + (1|band) )
-    print(anova(fit))
-  } else {
-    fit = lm(nav ~  str_beta_num + race + gender + hand + age, data=dplyr::filter(net_task_data, fc_measure == m))
-    print(anova(fit))
-  }
+  fit = lm(data=dplyr::filter(net_task_data, band_measure == m), nav ~  str_beta_num + race + gender + hand + age)
+  print(anova(fit))
 }
 ```
 
+# With demographics
+
+```{r}
+
+fc = unique(net_data$band_measure)
+for (m in fc){
+  print(m)
+  fit = lm(data=dplyr::filter(net_data, band_measure == m), str_beta_bin ~  race + gender + hand + age)
+  print(anova(fit))
+}
+
+```
+```
 
 ## EDA
 

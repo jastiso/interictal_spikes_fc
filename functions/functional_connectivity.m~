@@ -561,8 +561,8 @@ if ~exist([top_dir, 'FC/release',release, '/', protocol, '/', subj, '/', 'win_',
                                                     not_soz_str(cnt:(cnt+nTrial-1)) = mean(abs(curr_data(:, elec_idx & ~soz_idx_dir),2));
                                                 end
                                                 if any(spike_idx_dir)
-                                                    spike_str(cnt:(cnt+nTrial-1)) = mean(abs(curr_data(:, elec_idx & spike_idx_dir),2));
-                                                    not_spike_str(cnt:(cnt+nTrial-1)) = mean(abs(curr_data(:, elec_idx & ~spike_idx_dir),2));
+                                                    spike_str(cnt:(cnt+nTrial-1)) = mean(abs(curr_data(:, elec_idx & spike_idx_dir),2);
+                                                    not_spike_str(cnt:(cnt+nTrial-1)) = mean(curr_data(:, elec_idx & ~spike_idx_dir),2);
                                                 end
                                                 
                                                 % get other elec vars

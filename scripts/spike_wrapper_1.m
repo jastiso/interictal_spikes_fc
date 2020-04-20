@@ -178,7 +178,7 @@ for r = 1:numel(releases)
                             for j = 1:nTrial
                                 curr = [];
                                 try
-                                    results = Delphos_detector(ft_data.trial{j},ft_data.label, 'SEEG', ft_data.fsample, {'Spk'}, [], [], 40,[]);
+                                    results = Delphos_detector(ft_data.trial{j},ft_data.label, 'SEEG', ft_data.fsample, {'Spk'}, [], [], 50,[]);
                                     curr.pos = [results.markers(:).position];
                                     curr.dur = [results.markers(:).duration];
                                     curr.value = [results.markers(:).value];

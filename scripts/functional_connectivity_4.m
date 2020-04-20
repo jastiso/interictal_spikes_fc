@@ -46,7 +46,7 @@ for r = 1:numel(releases)
         
         % get subjects
         subjects = fields(info.subjects);
-        parfor s = 1:numel(subjects)
+        for s = 1:numel(subjects)
             subj = subjects{s};
             
             functional_connectivity(protocol, release, top_dir, subj, detector, spike_win, win_length)
@@ -170,7 +170,7 @@ for i = 1:numel(duplicates)
         end
         %save new file in top directory
         if size(fc_table,1) > nObs
-            writetable(fc_table, [top_dir, 'FC/release',num2str(top_rel), '/', protocol, '/', subj, '/win_', num2str(win_length), '/fc_data.csv']);
+            writetable(fc_table, [top_dir, 'FC/release',num2str(top_rel), '/', protocol, '/', subj, '/win_', num2str(win_length), '/fc_data', detector, '.csv']);
         end
     end
 end
@@ -202,7 +202,7 @@ for r = 1:numel(releases)
         for s = 1:numel(subjects)
             subj = subjects{s};
             subj_dir = [top_dir, 'FC/release',release, '/', protocol, '/', subj, '/'];
-            curr_err = load([release_dir, 'protocols/fc_errors', detector, '.mat']);
+            curr_err = load([release_dir, 'protocols/fc_errors.mat']);
             errors_all= [errors_all, curr_err.errors];
         end
     end
