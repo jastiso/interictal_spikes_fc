@@ -11,7 +11,7 @@ knitr::opts_chunk$set(echo = TRUE)
 rm(list=ls())
 
 if (!require("pacman")) install.packages("pacman")
-pacman::p_load(ggplot2, dplyr, lm.beta, RColorBrewer, nationalparkcolors, rjson, reticulate, gridExtra, wesanderson, MASS, outliers, lmerTest, stringr)
+pacman::p_load(ggplot2, dplyr, lm.beta, RColorBrewer, nationalparkcolors, rjson, reticulate, gridExtra, wesanderson, MASS, outliers, lmerTest, stringr, lmPerm)
 
 # set up python for later
 use_python("/Users/stiso/anaconda3/bin/python") # path to python binary
@@ -22,7 +22,7 @@ RAM_dir = '/Volumes/bassett-data/Jeni/RAM/'
 
 # parameters
 win = 1
-detector = ''
+detector = '_delphos'
 
 ```
 
@@ -238,115 +238,415 @@ spike_data <- mutate(spike_data, band_measure = paste(Frequency.Band, Measure, s
 
 ```
 
-
+Are distributions of effect sizes different from 0?
 ```{r}
+pred = 'bin' # bin or num
+aec_flag = 'aec$' # which aec do you want to EXCLUDE, orth or regular. The carrot mean "ends with"
+
 bfc = unique(net_data$band_measure)
-bin_ps = list()
-bin_ts = list()
-bin_df = list()
+bfc = bfc[!grepl(aec_flag, bfc)]
+ps = list()
+ts = list()
+df = list()
 for (m in bfc){
   print(m)
   curr <- filter(net_data, band_measure == m)
-  stat <- t.test(curr$str_beta_bin)
+  stat <- t.test(curr[paste('str_beta_', pred, sep='')])
   print(stat)
-  bin_ps = c(bin_ps, stat$p.value)
-  bin_ts = c(bin_ts, stat$statistic)
-  bin_df = c(bin_df, stat$parameter)
+  ps = c(ps, stat$p.value)
+  ts = c(ts, stat$statistic)
+  df = c(df, stat$parameter)
 }
 
-bin_stats = data.frame(p = p.adjust(bin_ps, method="bonferroni"), t = unlist(bin_ts), df = unlist(bin_df), measure = bfc, sig = p.adjust(bin_ps, method="bonferroni") < 0.05)
-bin_stats
+# corrections based on aec or aec_orth, not both
+stats = data.frame(p = p.adjust(ps, method='bonferroni'), t = unlist(ts), df = unlist(df), measure = bfc, sig = p.adjust(ps, method="bonferroni") < 0.05)
+stats
 
 ```
 
+Is there a differences between orthogonalized AEC, and AEC?
 ```{r}
-num_ps = list()
-num_ts = list()
-num_df = list()
-for (m in bfc){
+pred = 'bin'
+
+# test for main effect of orthogonalization
+amp = filter(net_data, fc_measure == 'aec' | fc_measure == 'aec_ortho')
+bands = unique(amp$band)
+aec_ps = list()
+aec_ts = list()
+aec_df = list()
+
+for (m in bands){
   print(m)
-  curr <- filter(net_data, band_measure == m)
-  stat <- t.test(curr$str_beta_num)
-  print(stat)
-  num_ps = c(num_ps, stat$p.value)
-  num_ts = c(num_ts, stat$statistic)
-  num_df = c(num_df, stat$parameter)
+  curr <- dplyr::filter(amp, band == m)
+  if (pred == 'bin'){
+    stat <- lmer(data=curr, str_beta_bin ~ fc_measure + (1|subj))
+  } else {
+    stat <- lmer(data=curr, str_beta_num ~ fc_measure + (1|subj))
+  }
+  print(anova(stat))
+  aec_ps = c(aec_ps, anova(stat)$`Pr(>F)`[1])
+  aec_ts = c(aec_ts, anova(stat)$`F value`[1])
+  aec_df = c(aec_df, anova(stat)$DenDF[1])
 }
 
-num_stats = data.frame(p = p.adjust(num_ps, method="bonferroni"), t = unlist(num_ts), df = unlist(num_df), measure = bfc, sig = p.adjust(num_ps, method="bonferroni") < 0.05)
-num_stats
-
+aec_stats = data.frame(p = unlist(aec_ps), f = unlist(aec_ts), df = unlist(aec_df), band = bands, sigMC = p.adjust(aec_ps, method = 'bonferroni') < 0.05, sig = aec_ps < 0.05)
+aec_stats
 ```
 
+Do distributions of effect sizes differ within seizure onset zone vs outside of it?
 ```{r}
+pred = 'bin'
+aec_flag = 'aec$'
+
+pred = paste('soz_beta_', pred, sep = '')
 soz_bm = unique(soz_data$band_measure)
+soz_bm = soz_bm[!grepl(aec_flag, soz_bm)]
 soz_ps = list()
 soz_ts = list()
 soz_df = list()
 for (m in soz_bm){
   print(m)
   curr <- dplyr::filter(soz_data, band_measure == m)
-  stat <- t.test(dplyr::filter(curr, SOZ == 'within')$soz_beta_num, dplyr::filter(curr, SOZ == 'outside')$soz_beta_num, paired=TRUE)
+  within <- dplyr::filter(curr, SOZ == 'within') 
+  within <- dplyr::select(within, pred)
+  outside <- dplyr::filter(curr, SOZ == 'outside')
+  outside <- dplyr::select(outside, pred)
+  stat <- t.test(within[,1], outside[,1], paired=TRUE)
   print(stat)
   soz_ps = c(soz_ps, stat$p.value)
   soz_ts = c(soz_ts, stat$statistic)
   soz_df = c(soz_df, stat$parameter)
 }
 
-soz_stats = data.frame(p = unlist(soz_ps), t = unlist(soz_ts), df = unlist(soz_df), measure = soz_bm, sig = p.adjust(soz_ps, method="bonferroni") < 0.05)
+soz_stats = data.frame(p = unlist(soz_ps), t = unlist(soz_ts), df = unlist(soz_df), measure = soz_bm, sigMC = p.adjust(soz_ps, method="bonferroni") < 0.05, sig = unlist(soz_ps) < 0.05)
 soz_stats
 
 ```
 
 ```{r}
+pred = 'num'
+aec_flag = 'aec$'
+
+pred = paste('spike_beta_', pred, sep = '')
 spike_bm = unique(spike_data$band_measure)
+spike_bm = spike_bm[!grepl(aec_flag, spike_bm)]
 spike_ps = list()
 spike_ts = list()
 spike_df = list()
 for (m in spike_bm){
   print(m)
   curr <- dplyr::filter(spike_data, band_measure == m)
-  stat <- t.test(dplyr::filter(curr, spike == 'within')$spike_beta_num, dplyr::filter(curr, spike == 'outside')$spike_beta_num, paired=TRUE)
+  within <- dplyr::filter(curr, spike == 'within') 
+  within <- dplyr::select(within, pred)
+  outside <- dplyr::filter(curr, spike == 'outside')
+  outside <- dplyr::select(outside, pred)
+  stat <- t.test(within[,1], outside[,1], paired=TRUE)
   print(stat)
   spike_ps = c(spike_ps, stat$p.value)
   spike_ts = c(spike_ts, stat$statistic)
   spike_df = c(spike_df, stat$parameter)
 }
 
-spike_stats = data.frame(p = unlist(spike_ps), t = unlist(spike_ts), df = unlist(spike_df), measure = spike_bm, sig = p.adjust(spike_ps, method="bonferroni") < 0.05)
+spike_stats = data.frame(p = unlist(spike_ps), t = unlist(spike_ts), df = unlist(spike_df), measure = spike_bm, sigMC = p.adjust(spike_ps, method="bonferroni") < 0.05, sig = unlist(spike_ps) < 0.05)
 spike_stats
 
 ```
 
+The rest of the stats are concerning parsing variability across indidividuals and channels
+```{r}
+keep_measures = c('aec_ortho', 'coh')
+supp_measures = c('aec', 'plv', 'ar', 'xcorr')
+```
+
+
  # Relationship with behavior
  
 ```{r}
+ # general task performance
+ pred = 'bin'
+supp_flag = FALSE # are you using main measures, or supplemental measures
+
+task_ps = list()
+task_df = list()
+task_ts = list()
+tasks = c('TH', 'YC', 'PAL', 'FR', 'catFR')
 net_task_data = read.csv(paste('/Volumes/bassett-data/Jeni/RAM/group_analysis/win_', as.character(win), '/net_task_data_clean', detector, '.csv', sep=''))
+net_task_data = net_task_data[rowSums(is.na(net_task_data[,tasks])) <= 2,]
 net_task_data$race = as.factor(net_task_data$race)
 net_task_data <- mutate(net_task_data, band_measure = paste(Frequency.Band, Measure, sep = '_'))
-
-# binary
-# number of spikes
+if (supp_flag){
+  # loop through other measures and remove...probably a better way to do this
+  for (m in keep_measures){
+    net_task_data = dplyr::filter(net_task_data, Measure != m)
+  }
+}else {
+  for (m in supp_measures){
+    net_task_data = dplyr::filter(net_task_data, Measure != m)
+  }
+}
 fc = unique(net_task_data$band_measure)
 for (m in fc){
   print(m)
-  fit = lm(data=dplyr::filter(net_task_data, band_measure == m), nav ~  str_beta_num + race + gender + hand + age)
+  curr = dplyr::filter(net_task_data, band_measure == m)
+  # scale
+  contrasts(curr$gender) <- contr.helmert(2)/2
+  fit = lm(data=curr, paste('avg ~ str_beta_', pred, ' + race + gender + age + hand', sep=''))
   print(anova(fit))
+  task_ps = c(task_ps, anova(fit)$`Pr(>F)`[1])
+  task_ts = c(task_ts, anova(fit)$`F value`[1])
+  task_df = c(task_df, anova(fit)$Df[2])
 }
+
+task_stats = data.frame(p = unlist(task_ps), f = unlist(task_ts), df = unlist(task_df), band_measure = fc, sigMC = p.adjust(task_ps, method = 'bonferroni') < 0.05, sig = task_ps < 0.05)
+task_stats
+```
+ 
+```{r}
+pred = 'bin'
+task = 'nav' # nav or recall, individual tasks are TH, FR, catFR, PAL, YC
+supp_flag = FALSE # are you using main measures, or supplemental measures
+
+task_ps = list()
+task_df = list()
+task_ts = list()
+tasks = c('TH', 'YC', 'PAL', 'FR', 'catFR')
+net_task_data = read.csv(paste('/Volumes/bassett-data/Jeni/RAM/group_analysis/win_', as.character(win), '/net_task_data_clean', detector, '.csv', sep=''))
+net_task_data = net_task_data[rowSums(is.na(net_task_data[,tasks])) <= 2,]
+net_task_data$race = as.factor(net_task_data$race)
+net_task_data <- mutate(net_task_data, band_measure = paste(Frequency.Band, Measure, sep = '_'))
+if (supp_flag){
+  # loop through other measures and remove...probably a better way to do this
+  for (m in keep_measures){
+    net_task_data = dplyr::filter(net_task_data, Measure != m)
+  }
+}else {
+  for (m in supp_measures){
+    net_task_data = dplyr::filter(net_task_data, Measure != m)
+  }
+}
+fc = unique(net_task_data$band_measure)
+for (m in fc){
+  print(m)
+  curr = dplyr::filter(net_task_data, band_measure == m)
+  # scale
+  contrasts(curr$gender) <- contr.helmert(2)/2
+  fit = lm(data=curr, paste(task, ' ~ str_beta_', pred, ' + race + gender + age + hand + avg', sep=''))
+  print(anova(fit))
+  task_ps = c(task_ps, anova(fit)$`Pr(>F)`[1])
+  task_ts = c(task_ts, anova(fit)$`F value`[1])
+  task_df = c(task_df, anova(fit)$Df[2])
+}
+
+task_stats = data.frame(p = unlist(task_ps), f = unlist(task_ts), df = unlist(task_df), band_measure = fc, sigMC = p.adjust(task_ps, method = 'bonferroni') < 0.05, sig = task_ps < 0.05)
+task_stats
 ```
 
 # With demographics
 
 ```{r}
+pred = 'bin'
+supp_flag = TRUE
+idx = 1 # which demographic do you want to make plots for? use the index for the 'dems' list. 1 = race, 2 = gender, etc
 
-fc = unique(net_data$band_measure)
+dems = c('race', 'gender', 'hand', 'age')
+dem_ps = list()
+dem_ts = list()
+dem_df = list()
+curr = net_data
+if (supp_flag){
+  # loop through other measures and remove...probably a better way to do this
+  for (m in keep_measures){
+    curr = dplyr::filter(curr, fc_measure != m)
+  }
+}else {
+  for (m in supp_measures){
+    curr = dplyr::filter(curr, fc_measure != m)
+  }
+}
+fc = unique(curr$band_measure)
 for (m in fc){
   print(m)
-  fit = lm(data=dplyr::filter(net_data, band_measure == m), str_beta_bin ~  race + gender + hand + age)
+  fit = lm(data=dplyr::filter(curr, band_measure == m), paste('str_beta_',pred,' ~ race + gender + hand + age',sep=''))
   print(anova(fit))
+  dem_ps = c(dem_ps, anova(fit)$`Pr(>F)`[idx])
+  dem_ts = c(dem_ts, anova(fit)$`F value`[idx])
+  dem_df = c(dem_df, anova(fit)$Df[idx])
+}
+dem_stats = data.frame(dem = dems[idx], p = unlist(dem_ps), f = unlist(dem_ts), df = unlist(dem_df), band_measure = fc, sigMC = p.adjust(dem_ps, method = 'bonferroni') < 0.05, sig = dem_ps < 0.05)
+dem_stats
+```
+
+# variability in soz hemisphere
+```{r}
+pred = 'bin'
+supp_flag = FALSE # are you using main measures, or supplemental measures
+flag = 'soz' # do you want to look at soz or spike
+
+hem_ps = list()
+hem_df = list()
+hem_ts = list()
+hem_data = read.csv(paste('/Volumes/bassett-data/Jeni/RAM/group_analysis/win_', as.character(win), '/sys_',flag, detector, '.csv', sep=''))
+hem_data <- mutate(hem_data, band_measure = paste(Frequency.Band, Measure, sep = '_'))
+hem_data$hem_hand[!((hem_data$hem_hand == 'i') | (hem_data$hem_hand == 'c'))] = NA
+
+if (supp_flag){
+  # loop through other measures and remove...probably a better way to do this
+  for (m in keep_measures){
+    hem_data = dplyr::filter(hem_data, Measure != m)
+  }
+}else {
+  for (m in supp_measures){
+    hem_data = dplyr::filter(hem_data, Measure != m)
+  }
+}
+fc = unique(hem_data$band_measure)
+for (m in fc){
+  print(m)
+  curr = dplyr::filter(hem_data, band_measure == m)
+  if (pred == 'num'){
+    fit = aovp(data=curr, str_beta_num ~ hem_hand + race + gender + age)
+  } else {
+    fit = aovp(data=curr, str_beta_bin ~ hem_hand + race + gender + age)
+  }
+  
+  print(summary(fit))
+  tmp <- summary(fit)
+  hem_ps = c(hem_ps, summary(fit)[[1]]$`Pr(Prob)`[1])
+  hem_ts = c(hem_ts, summary(fit)[[1]]$`R Mean Sq`[1])
+  hem_df = c(hem_df, summary(fit)[[1]]$Df[1])
 }
 
+hem_stats = data.frame(p = unlist(hem_ps), f = unlist(hem_ts), df = unlist(hem_df), band_measure = fc, sigMC = p.adjust(hem_ps, method = 'bonferroni') < 0.05, sig = hem_ps < 0.05)
+hem_stats
+
 ```
+# variability in SOZ/spike location
+```{r}
+pred = 'bin'
+supp_flag = FALSE # are you using main measures, or supplemental measures
+flag = 'soz'
+
+loc_ps = list()
+loc_df = list()
+loc_ts = list()
+soz_loc_data = read.csv(paste('/Volumes/bassett-data/Jeni/RAM/group_analysis/win_', as.character(win), '/sys_',flag, detector, '.csv', sep=''))
+soz_loc_data <- mutate(soz_loc_data, band_measure = paste(Frequency.Band, Measure, sep = '_'))
+if (supp_flag){
+  # loop through other measures and remove...probably a better way to do this
+  for (m in keep_measures){
+    soz_loc_data = dplyr::filter(soz_loc_data, Measure != m)
+  }
+}else {
+  for (m in supp_measures){
+    soz_loc_data = dplyr::filter(soz_loc_data, Measure != m)
+  }
+}
+fc = unique(soz_loc_data$band_measure)
+for (m in fc){
+  print(m)
+  curr = dplyr::filter(soz_loc_data, band_measure == m)
+  if (pred == 'num'){
+    fit = aovp(data=curr, str_beta_num ~ locus + race + gender + hand + age)
+  } else {
+    fit = aovp(data=curr, str_beta_bin ~ locus + race + gender + hand + age)
+  }
+  print(summary(fit))
+  loc_ps = c(loc_ps, summary(fit)[[1]]$`Pr(Prob)`[1])
+  loc_ts = c(loc_ts, summary(fit)[[1]]$`R Mean Sq`[1])
+  loc_df = c(loc_df, summary(fit)[[1]]$Df[1])
+}
+
+loc_stats = data.frame(p = unlist(loc_ps), f = unlist(loc_ts), df = unlist(loc_df), band_measure = fc, sigMC = p.adjust(loc_ps, method = 'bonferroni') < 0.05, sig = loc_ps < 0.05)
+loc_stats
+
+```
+
+
+## Parsing Variability across regions
+
+# aggregating over systems
+
+```{r}
+
+supp_flag = TRUE # is this analysis for the supplemental meausres, or the main ones
+pred = 'num'
+
+sys_ps = list()
+sys_df = list()
+sys_ndf = list()
+sys_fs = list()
+sys_data = read.csv(paste(RAM_dir, 'group_analysis/win_', as.character(win), '/sys_stats', detector, '.csv', sep=''))
+sys_data <- mutate(sys_data, band_measure = paste(band, fc_measure, sep = '_'))
+if (supp_flag){
+  # loop through other measures and remove...probably a better way to do this
+  for (m in keep_measures){
+    sys_data = dplyr::filter(sys_data, fc_measure != m)
+  }
+}else {
+  for (m in supp_measures){
+    sys_data = dplyr::filter(sys_data, fc_measure != m)
+  }
+}
+
+fc = unique(sys_data$band_measure)
+for (m in fc){
+  print(m)
+  if (pred == 'bin'){
+    fit = lmer(data=dplyr::filter(sys_data, band_measure == m), scale_bin ~ sys + (1|subj))
+  } else {
+    fit = lmer(data=dplyr::filter(sys_data, band_measure == m), scale_num ~ sys + (1|subj))
+  }
+  print(anova(fit))
+  sys_ps = c(sys_ps, anova(fit)$`Pr(>F)`[1])
+  sys_fs = c(sys_fs, anova(fit)$`F value`[1])
+  sys_ndf = c(sys_ndf, anova(fit)$NumDF[1])
+  sys_df = c(sys_df, anova(fit)$DenDF[1])
+}
+
+sys_stats = data.frame(p = unlist(sys_ps), f = unlist(sys_fs), ndf = unlist(sys_ndf), df = unlist(sys_df), band_measure = fc, sigMC = p.adjust(sys_ps, method = 'bonferroni') < 0.05, sig = sys_ps < 0.05)
+sys_stats
+```
+
+# aggregating by electrode type
+```{r}
+
+supp_flag = TRUE # is this analysis for the supplemental meausres, or the main ones
+pred = 'bin'
+
+wm_ps = list()
+wm_df = list()
+wm_ndf = list()
+wm_fs = list()
+wm_data = read.csv(paste(RAM_dir, 'group_analysis/win_', as.character(win), '/type_stats', detector, '.csv', sep=''))
+wm_data <- mutate(wm_data, band_measure = paste(band, fc_measure, sep = '_'))
+if (supp_flag){
+  # loop through other measures and remove...probably a better way to do this
+  for (m in keep_measures){
+    wm_data = dplyr::filter(wm_data, fc_measure != m)
+  }
+}else {
+  for (m in supp_measures){
+    wm_data = dplyr::filter(wm_data, fc_measure != m)
+  }
+}
+
+fc = unique(sys_data$band_measure)
+for (m in fc){
+  print(m)
+  if (pred == 'bin'){
+    fit = lmer(data=dplyr::filter(wm_data, band_measure == m), str_beta_bin ~ type + (1|subj))
+  } else {
+    fit = lmer(data=dplyr::filter(wm_data, band_measure == m), str_beta_num ~ type + (1|subj))
+  }
+  print(anova(fit))
+  wm_ps = c(wm_ps, anova(fit)$`Pr(>F)`[1])
+  wm_fs = c(wm_fs, anova(fit)$`F value`[1])
+  wm_ndf = c(wm_ndf, anova(fit)$NumDF[1])
+  wm_df = c(wm_df, anova(fit)$DenDF[1])
+}
+
+wm_stats = data.frame(p = unlist(wm_ps), f = unlist(wm_fs), ndf = unlist(wm_ndf), df = unlist(wm_df), band_measure = fc, sigMC = p.adjust(wm_ps, method = 'bonferroni') < 0.05, sig = wm_ps < 0.05)
+wm_stats
 ```
 
 ## EDA
