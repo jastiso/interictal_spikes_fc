@@ -40,7 +40,7 @@ for i = 1:nPair
     Pyy = squeeze(data.powspctrm(:,y,:));
     % get coherence
     if strcmpi(type, 'imaginary')
-        C(:,i,:) = abs(imag((Pxy.^2)./(Pxx.*Pyy)))';
+        C(:,i,:) = abs((Pxy.^2)./(Pxx.*Pyy))';
     else
         C(:,i,:) = abs((Pxy.^2)./(Pxx.*Pyy))';
     end

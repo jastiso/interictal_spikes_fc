@@ -22,7 +22,7 @@ bands = [4, 8; 9, 15; 16 25; 36, 70; 71, 150];
 band_names = [{'theta'}, {'alpha'}, {'beta'}, {'gamma'}, {'hg'}];
 
 %fc measures
-measure_names = [{'coh'}, {'plv'}, {'aec'}, {'aec_ortho'}, {'xcorr'}, {'ar'}, {'pac'}];
+measure_names = [{'coh'}, {'im_coh'}, {'plv'}, {'aec'}, {'aec_ortho'}, {'xcorr'}, {'ar'}, {'pac'}];
 %parameters
 pmin = 1; pmax = 1; % order for AR model
 % constants
@@ -216,7 +216,8 @@ if ~exist([top_dir, 'FC/release',release, '/', protocol, '/', subj, '/', 'win_',
                             
                             % coh
                             fprintf('\ncoherence...\n')
-                            C = get_coh(wave,bands);
+                            C = get_coh(wave,bands, 'regular');
+                            Ci = get_coh(wave, bands, 'imaginary');
                             
                             % band limited, time resolved
                             fprintf('\nStarting Hilbert transform\n')
@@ -380,10 +381,12 @@ if ~exist([top_dir, 'FC/release',release, '/', protocol, '/', subj, '/', 'win_',
                             for i = 1:nMeasures
                                 curr_measure = measure_names{i};
                                 switch curr_measure
-                                    case [{'coh'}, {'plv'}, {'aec'}, {'aec_ortho'}]
+                                    case [{'coh'}, {'im_coh'}, {'plv'}, {'aec'}, {'aec_ortho'}]
                                         % get measure of interest
                                         if strcmp(curr_measure, 'coh')
                                             curr_data = C;
+                                        elseif strcmp(curr_measure, 'im_coh')
+                                            curr_data = Ci;
                                         elseif strcmp(curr_measure, 'plv')
                                             curr_data = plv;
                                         elseif strcmp(curr_measure, 'aec')

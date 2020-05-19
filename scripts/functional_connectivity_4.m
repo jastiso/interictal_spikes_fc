@@ -202,7 +202,7 @@ for r = 1:numel(releases)
         for s = 1:numel(subjects)
             subj = subjects{s};
             subj_dir = [top_dir, 'FC/release',release, '/', protocol, '/', subj, '/'];
-            curr_err = load([release_dir, 'protocols/fc_errors.mat']);
+            curr_err = load([release_dir, 'protocols/fc_errors', detector, '.mat']);
             errors_all= [errors_all, curr_err.errors];
         end
     end
