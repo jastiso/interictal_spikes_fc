@@ -22,7 +22,7 @@ RAM_dir = '/Volumes/bassett-data/Jeni/RAM/'
 
 # parameters
 win = 1
-detector = '_delphos'
+detector = ''
 
 ```
 
@@ -360,10 +360,11 @@ supp_measures = c('aec', 'plv', 'ar', 'xcorr')
 
 
  # Relationship with behavior
+
  
 ```{r}
  # general task performance
- pred = 'bin'
+pred = 'bin'
 supp_flag = FALSE # are you using main measures, or supplemental measures
 
 task_ps = list()
@@ -371,7 +372,6 @@ task_df = list()
 task_ts = list()
 tasks = c('TH', 'YC', 'PAL', 'FR', 'catFR')
 net_task_data = read.csv(paste('/Volumes/bassett-data/Jeni/RAM/group_analysis/win_', as.character(win), '/net_task_data_clean', detector, '.csv', sep=''))
-net_task_data = net_task_data[rowSums(is.na(net_task_data[,tasks])) <= 2,]
 net_task_data$race = as.factor(net_task_data$race)
 net_task_data <- mutate(net_task_data, band_measure = paste(Frequency.Band, Measure, sep = '_'))
 if (supp_flag){
@@ -388,21 +388,76 @@ fc = unique(net_task_data$band_measure)
 for (m in fc){
   print(m)
   curr = dplyr::filter(net_task_data, band_measure == m)
-  # scale
-  contrasts(curr$gender) <- contr.helmert(2)/2
-  fit = lm(data=curr, paste('avg ~ str_beta_', pred, ' + race + gender + age + hand', sep=''))
+  curr = curr[!is.na(curr[,paste('str_beta_', pred, sep='')]),]
+  nObs = dim(curr)[1]
+  nRow = dim(resid)[1]
+  fit = lm(data=curr, paste('avg ~ str_beta_', pred, '+ race + gender + age + hand', sep=''))
   print(anova(fit))
-  task_ps = c(task_ps, anova(fit)$`Pr(>F)`[1])
-  task_ts = c(task_ts, anova(fit)$`F value`[1])
-  task_df = c(task_df, anova(fit)$Df[2])
+      
+  # get stats
+  task_ps = c(task_ps, summary(fit)$coefficients[2,'Pr(>|t|)'])
+  task_ts = c(task_ts, summary(fit)$coefficients[2,'t value'])
+  task_df = c(task_df, summary(fit)$df[2])
 }
 
 task_stats = data.frame(p = unlist(task_ps), f = unlist(task_ts), df = unlist(task_df), band_measure = fc, sigMC = p.adjust(task_ps, method = 'bonferroni') < 0.05, sig = task_ps < 0.05)
 task_stats
 ```
- 
+
+
 ```{r}
+resid = data.frame(subj = character(length=0), Measure = character(length=0), resid_num = numeric(0), resid_bin = numeric(0), Band = character(length=0), nav = numeric(0), recall = numeric(0), stringsAsFactors = FALSE)
+```
+```{r}
+ # general task performance
 pred = 'bin'
+supp_flag = TRUE # are you using main measures, or supplemental measures
+
+net_task_data = read.csv(paste('/Volumes/bassett-data/Jeni/RAM/group_analysis/win_', as.character(win), '/net_task_data_clean', detector, '.csv', sep=''))
+net_task_data$race = as.factor(net_task_data$race)
+net_task_data <- mutate(net_task_data, band_measure = paste(Frequency.Band, Measure, sep = '_'))
+if (supp_flag){
+  # loop through other measures and remove...probably a better way to do this
+  for (m in keep_measures){
+    net_task_data = dplyr::filter(net_task_data, Measure != m)
+  }
+}else {
+  for (m in supp_measures){
+    net_task_data = dplyr::filter(net_task_data, Measure != m)
+  }
+}
+fc = unique(net_task_data$band_measure)
+for (m in fc){
+  curr = dplyr::filter(net_task_data, band_measure == m)
+  curr = curr[!is.na(curr[,paste('str_beta_', pred, sep='')]),]
+  nObs = dim(curr)[1]
+  nRow = dim(resid)[1]
+  # scale
+  fit = lm(data=curr, paste('str_beta_', pred, ' ~ avg + race + gender + age + hand', sep=''))
+
+  # get residuals
+  resid[(nRow+1):(nRow+nObs),'subj'] = as.character(curr$subj)
+  resid[(nRow+1):(nRow+nObs),'Measure'] = as.character(curr$Measure)
+  resid[(nRow+1):(nRow+nObs),'Band'] = as.character(curr$Frequency.Band)
+  resid[(nRow+1):(nRow+nObs), 'nav'] = curr$scale_nav
+  resid[(nRow+1):(nRow+nObs), 'recall'] = curr$recall
+  if (pred == 'num'){
+    resid[(nRow+1):(nRow+nObs), 'resid_num'] = fit$residuals
+  } else {
+    resid[(nRow+1):(nRow+nObs), 'resid_bin'] = fit$residuals
+  }
+
+}
+
+```
+
+```{r}
+# save residuals for plots
+write.csv(resid, file = paste(RAM_dir, 'group_analysis/win_', as.character(win), '/resid', detector, '.csv', sep=''))
+```
+
+```{r}
+pred = 'num'
 task = 'nav' # nav or recall, individual tasks are TH, FR, catFR, PAL, YC
 supp_flag = FALSE # are you using main measures, or supplemental measures
 
@@ -411,7 +466,6 @@ task_df = list()
 task_ts = list()
 tasks = c('TH', 'YC', 'PAL', 'FR', 'catFR')
 net_task_data = read.csv(paste('/Volumes/bassett-data/Jeni/RAM/group_analysis/win_', as.character(win), '/net_task_data_clean', detector, '.csv', sep=''))
-net_task_data = net_task_data[rowSums(is.na(net_task_data[,tasks])) <= 2,]
 net_task_data$race = as.factor(net_task_data$race)
 net_task_data <- mutate(net_task_data, band_measure = paste(Frequency.Band, Measure, sep = '_'))
 if (supp_flag){
@@ -431,15 +485,17 @@ for (m in fc){
   # scale
   contrasts(curr$gender) <- contr.helmert(2)/2
   fit = lm(data=curr, paste(task, ' ~ str_beta_', pred, ' + race + gender + age + hand + avg', sep=''))
-  print(anova(fit))
-  task_ps = c(task_ps, anova(fit)$`Pr(>F)`[1])
-  task_ts = c(task_ts, anova(fit)$`F value`[1])
-  task_df = c(task_df, anova(fit)$Df[2])
+  print(summary(fit))
+  task_ps = c(task_ps, summary(fit)$coefficients[2,'Pr(>|t|)'])
+  task_ts = c(task_ts, summary(fit)$coefficients[2,'t value'])
+  task_df = c(task_df, summary(fit)$df[2])
 }
 
 task_stats = data.frame(p = unlist(task_ps), f = unlist(task_ts), df = unlist(task_df), band_measure = fc, sigMC = p.adjust(task_ps, method = 'bonferroni') < 0.05, sig = task_ps < 0.05)
 task_stats
 ```
+
+
 
 # With demographics
 
@@ -478,7 +534,7 @@ dem_stats
 
 # variability in soz hemisphere
 ```{r}
-pred = 'bin'
+pred = 'num'
 supp_flag = FALSE # are you using main measures, or supplemental measures
 flag = 'soz' # do you want to look at soz or spike
 
@@ -522,7 +578,7 @@ hem_stats
 ```
 # variability in SOZ/spike location
 ```{r}
-pred = 'bin'
+pred = 'num'
 supp_flag = FALSE # are you using main measures, or supplemental measures
 flag = 'soz'
 

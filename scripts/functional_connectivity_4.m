@@ -18,8 +18,8 @@ top_dir = '/Volumes/bassett-data/Jeni/RAM/';
 releases = ['1', '2', '3'];
 
 spike_win = 0.05; %for loading spike data
-win_length = 1; % in seconds
-detector = '_delphos';
+win_length = 3; % in seconds
+detector = '';
 
 for r = 1:numel(releases)
     release = releases(r);
