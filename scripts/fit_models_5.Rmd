@@ -22,7 +22,7 @@ RAM_dir = '/Volumes/bassett-data/Jeni/RAM/'
 
 # parameters
 win = 1
-detector = ''
+detector = '_delphos'
 
 ```
 
@@ -240,11 +240,12 @@ spike_data <- mutate(spike_data, band_measure = paste(Frequency.Band, Measure, s
 
 Are distributions of effect sizes different from 0?
 ```{r}
-pred = 'bin' # bin or num
-aec_flag = 'aec$' # which aec do you want to EXCLUDE, orth or regular. The carrot mean "ends with"
+pred = 'bin'# bin or num
+aec_flag = 'aec$' # which aec do you want to EXCLUDE, orth or regular. The carrot mean "starts with", $                      means 'ends with'
+coh_flag = '^coh' # 
 
-bfc = unique(net_data$band_measure)
-bfc = bfc[!grepl(aec_flag, bfc)]
+curr_measures = net_data[!grepl(aec_flag, net_data$Measure) & !grepl(coh_flag, net_data$Measure),'band_measure']
+bfc = unique(curr_measures)
 ps = list()
 ts = list()
 df = list()
@@ -264,24 +265,30 @@ stats
 
 ```
 
-Is there a differences between orthogonalized AEC, and AEC?
+Is there a differences between orthogonalized AEC, and AEC, of coh and imaginary coh?
 ```{r}
 pred = 'bin'
+m = 'coh'
 
 # test for main effect of orthogonalization
-amp = filter(net_data, fc_measure == 'aec' | fc_measure == 'aec_ortho')
-bands = unique(amp$band)
+if (m == 'aec'){
+  amp = filter(net_data, Measure == 'aec' | Measure == 'aec_ortho')
+} else {
+  amp = filter(net_data, Measure == 'coh' | Measure == 'im_coh')
+}
+
+bands = unique(amp$Frequency.Band)
 aec_ps = list()
 aec_ts = list()
 aec_df = list()
 
 for (m in bands){
   print(m)
-  curr <- dplyr::filter(amp, band == m)
+  curr <- dplyr::filter(amp, Frequency.Band == m)
   if (pred == 'bin'){
-    stat <- lmer(data=curr, str_beta_bin ~ fc_measure + (1|subj))
+    stat <- lmer(data=curr, str_beta_bin ~ Measure + (1|subj))
   } else {
-    stat <- lmer(data=curr, str_beta_num ~ fc_measure + (1|subj))
+    stat <- lmer(data=curr, str_beta_num ~ Measure + (1|subj))
   }
   print(anova(stat))
   aec_ps = c(aec_ps, anova(stat)$`Pr(>F)`[1])
@@ -295,12 +302,14 @@ aec_stats
 
 Do distributions of effect sizes differ within seizure onset zone vs outside of it?
 ```{r}
-pred = 'bin'
-aec_flag = 'aec$'
+pred = 'num'
+aec_flag = 'aec$' # which aec do you want to EXCLUDE, orth or regular. The carrot mean "starts with", $                      means 'ends with'
+coh_flag = '^coh' # 
+
+curr_measures = soz_data[!grepl(aec_flag, soz_data$Measure) & !grepl(coh_flag, soz_data$Measure),'band_measure']
 
 pred = paste('soz_beta_', pred, sep = '')
-soz_bm = unique(soz_data$band_measure)
-soz_bm = soz_bm[!grepl(aec_flag, soz_bm)]
+soz_bm = unique(curr_measures)
 soz_ps = list()
 soz_ts = list()
 soz_df = list()
@@ -325,20 +334,22 @@ soz_stats
 
 ```{r}
 pred = 'num'
-aec_flag = 'aec$'
+aec_flag = 'aec$' # which aec do you want to EXCLUDE, orth or regular. The carrot mean "starts with", $                      means 'ends with'
+coh_flag = '^coh' # 
+
+curr_measures = spike_data[!grepl(aec_flag, spike_data$Measure) & !grepl(coh_flag, spike_data$Measure),'band_measure']
 
 pred = paste('spike_beta_', pred, sep = '')
-spike_bm = unique(spike_data$band_measure)
-spike_bm = spike_bm[!grepl(aec_flag, spike_bm)]
+spike_bm = unique(curr_measures)
 spike_ps = list()
 spike_ts = list()
 spike_df = list()
 for (m in spike_bm){
   print(m)
   curr <- dplyr::filter(spike_data, band_measure == m)
-  within <- dplyr::filter(curr, spike == 'within') 
+  within <- dplyr::filter(curr, spike == 'present') 
   within <- dplyr::select(within, pred)
-  outside <- dplyr::filter(curr, spike == 'outside')
+  outside <- dplyr::filter(curr, spike == 'absent')
   outside <- dplyr::select(outside, pred)
   stat <- t.test(within[,1], outside[,1], paired=TRUE)
   print(stat)
@@ -354,8 +365,10 @@ spike_stats
 
 The rest of the stats are concerning parsing variability across indidividuals and channels
 ```{r}
-keep_measures = c('aec_ortho', 'coh')
-supp_measures = c('aec', 'plv', 'ar', 'xcorr')
+net_data <-mutate(net_data, band_measure_clean = tolower(paste(Frequency.Band, Measure, sep = '_')))
+keep_measures = c('theta_aec_ortho', 'lfp_ar', 'alpha_im_coh', 'beta_im_coh', 'gamma_im_coh')
+bm = unique(net_data$band_measure_clean)
+supp_measures = bm[which(!bm %in% keep_measures)]
 ```
 
 
@@ -364,7 +377,7 @@ supp_measures = c('aec', 'plv', 'ar', 'xcorr')
  
 ```{r}
  # general task performance
-pred = 'bin'
+pred = 'num'
 supp_flag = FALSE # are you using main measures, or supplemental measures
 
 task_ps = list()
@@ -372,16 +385,17 @@ task_df = list()
 task_ts = list()
 tasks = c('TH', 'YC', 'PAL', 'FR', 'catFR')
 net_task_data = read.csv(paste('/Volumes/bassett-data/Jeni/RAM/group_analysis/win_', as.character(win), '/net_task_data_clean', detector, '.csv', sep=''))
-net_task_data$race = as.factor(net_task_data$race)
+net_task_data$race <- as.factor(net_task_data$race)
 net_task_data <- mutate(net_task_data, band_measure = paste(Frequency.Band, Measure, sep = '_'))
+net_task_data$band_measure <- tolower(net_task_data$band_measure)
 if (supp_flag){
   # loop through other measures and remove...probably a better way to do this
   for (m in keep_measures){
-    net_task_data = dplyr::filter(net_task_data, Measure != m)
+    net_task_data = dplyr::filter(net_task_data, band_measure != m)
   }
 }else {
   for (m in supp_measures){
-    net_task_data = dplyr::filter(net_task_data, Measure != m)
+    net_task_data = dplyr::filter(net_task_data, band_measure != m)
   }
 }
 fc = unique(net_task_data$band_measure)
@@ -411,21 +425,11 @@ resid = data.frame(subj = character(length=0), Measure = character(length=0), re
 ```{r}
  # general task performance
 pred = 'bin'
-supp_flag = TRUE # are you using main measures, or supplemental measures
 
 net_task_data = read.csv(paste('/Volumes/bassett-data/Jeni/RAM/group_analysis/win_', as.character(win), '/net_task_data_clean', detector, '.csv', sep=''))
 net_task_data$race = as.factor(net_task_data$race)
 net_task_data <- mutate(net_task_data, band_measure = paste(Frequency.Band, Measure, sep = '_'))
-if (supp_flag){
-  # loop through other measures and remove...probably a better way to do this
-  for (m in keep_measures){
-    net_task_data = dplyr::filter(net_task_data, Measure != m)
-  }
-}else {
-  for (m in supp_measures){
-    net_task_data = dplyr::filter(net_task_data, Measure != m)
-  }
-}
+
 fc = unique(net_task_data$band_measure)
 for (m in fc){
   curr = dplyr::filter(net_task_data, band_measure == m)
@@ -468,14 +472,15 @@ tasks = c('TH', 'YC', 'PAL', 'FR', 'catFR')
 net_task_data = read.csv(paste('/Volumes/bassett-data/Jeni/RAM/group_analysis/win_', as.character(win), '/net_task_data_clean', detector, '.csv', sep=''))
 net_task_data$race = as.factor(net_task_data$race)
 net_task_data <- mutate(net_task_data, band_measure = paste(Frequency.Band, Measure, sep = '_'))
+net_task_data$band_measure <- tolower(net_task_data$band_measure)
 if (supp_flag){
   # loop through other measures and remove...probably a better way to do this
   for (m in keep_measures){
-    net_task_data = dplyr::filter(net_task_data, Measure != m)
+    net_task_data = dplyr::filter(net_task_data, band_measure != m)
   }
 }else {
   for (m in supp_measures){
-    net_task_data = dplyr::filter(net_task_data, Measure != m)
+    net_task_data = dplyr::filter(net_task_data, band_measure != m)
   }
 }
 fc = unique(net_task_data$band_measure)
@@ -485,7 +490,7 @@ for (m in fc){
   # scale
   contrasts(curr$gender) <- contr.helmert(2)/2
   fit = lm(data=curr, paste(task, ' ~ str_beta_', pred, ' + race + gender + age + hand + avg', sep=''))
-  print(summary(fit))
+  print(anova(fit))
   task_ps = c(task_ps, summary(fit)$coefficients[2,'Pr(>|t|)'])
   task_ts = c(task_ts, summary(fit)$coefficients[2,'t value'])
   task_df = c(task_df, summary(fit)$df[2])
@@ -500,9 +505,9 @@ task_stats
 # With demographics
 
 ```{r}
-pred = 'bin'
-supp_flag = TRUE
-idx = 1 # which demographic do you want to make plots for? use the index for the 'dems' list. 1 = race, 2 = gender, etc
+pred = 'num'
+supp_flag = FALSE
+idx = 4 # which demographic do you want to make plots for? use the index for the 'dems' list. 1 = race, 2 = gender, etc
 
 dems = c('race', 'gender', 'hand', 'age')
 dem_ps = list()
@@ -512,11 +517,11 @@ curr = net_data
 if (supp_flag){
   # loop through other measures and remove...probably a better way to do this
   for (m in keep_measures){
-    curr = dplyr::filter(curr, fc_measure != m)
+    curr = dplyr::filter(curr, band_measure_clean != m)
   }
 }else {
   for (m in supp_measures){
-    curr = dplyr::filter(curr, fc_measure != m)
+    curr = dplyr::filter(curr, band_measure_clean != m)
   }
 }
 fc = unique(curr$band_measure)
@@ -534,7 +539,7 @@ dem_stats
 
 # variability in soz hemisphere
 ```{r}
-pred = 'num'
+pred = 'bin'
 supp_flag = FALSE # are you using main measures, or supplemental measures
 flag = 'soz' # do you want to look at soz or spike
 
@@ -542,17 +547,17 @@ hem_ps = list()
 hem_df = list()
 hem_ts = list()
 hem_data = read.csv(paste('/Volumes/bassett-data/Jeni/RAM/group_analysis/win_', as.character(win), '/sys_',flag, detector, '.csv', sep=''))
-hem_data <- mutate(hem_data, band_measure = paste(Frequency.Band, Measure, sep = '_'))
+hem_data <- mutate(hem_data, band_measure = tolower(paste(Frequency.Band, Measure, sep = '_')))
 hem_data$hem_hand[!((hem_data$hem_hand == 'i') | (hem_data$hem_hand == 'c'))] = NA
 
 if (supp_flag){
   # loop through other measures and remove...probably a better way to do this
   for (m in keep_measures){
-    hem_data = dplyr::filter(hem_data, Measure != m)
+    hem_data = dplyr::filter(hem_data, band_measure != m)
   }
 }else {
   for (m in supp_measures){
-    hem_data = dplyr::filter(hem_data, Measure != m)
+    hem_data = dplyr::filter(hem_data, band_measure != m)
   }
 }
 fc = unique(hem_data$band_measure)
@@ -586,15 +591,15 @@ loc_ps = list()
 loc_df = list()
 loc_ts = list()
 soz_loc_data = read.csv(paste('/Volumes/bassett-data/Jeni/RAM/group_analysis/win_', as.character(win), '/sys_',flag, detector, '.csv', sep=''))
-soz_loc_data <- mutate(soz_loc_data, band_measure = paste(Frequency.Band, Measure, sep = '_'))
+soz_loc_data <- mutate(soz_loc_data, band_measure = tolower(paste(Frequency.Band, Measure, sep = '_')))
 if (supp_flag){
   # loop through other measures and remove...probably a better way to do this
   for (m in keep_measures){
-    soz_loc_data = dplyr::filter(soz_loc_data, Measure != m)
+    soz_loc_data = dplyr::filter(soz_loc_data, band_measure != m)
   }
 }else {
   for (m in supp_measures){
-    soz_loc_data = dplyr::filter(soz_loc_data, Measure != m)
+    soz_loc_data = dplyr::filter(soz_loc_data, band_measure != m)
   }
 }
 fc = unique(soz_loc_data$band_measure)
@@ -624,7 +629,7 @@ loc_stats
 
 ```{r}
 
-supp_flag = TRUE # is this analysis for the supplemental meausres, or the main ones
+supp_flag = FALSE # is this analysis for the supplemental meausres, or the main ones
 pred = 'num'
 
 sys_ps = list()
@@ -632,15 +637,15 @@ sys_df = list()
 sys_ndf = list()
 sys_fs = list()
 sys_data = read.csv(paste(RAM_dir, 'group_analysis/win_', as.character(win), '/sys_stats', detector, '.csv', sep=''))
-sys_data <- mutate(sys_data, band_measure = paste(band, fc_measure, sep = '_'))
+sys_data <- mutate(sys_data, band_measure = tolower(paste(band, fc_measure, sep = '_')))
 if (supp_flag){
   # loop through other measures and remove...probably a better way to do this
   for (m in keep_measures){
-    sys_data = dplyr::filter(sys_data, fc_measure != m)
+    sys_data = dplyr::filter(sys_data, band_measure != m)
   }
 }else {
   for (m in supp_measures){
-    sys_data = dplyr::filter(sys_data, fc_measure != m)
+    sys_data = dplyr::filter(sys_data, band_measure != m)
   }
 }
 
@@ -666,7 +671,7 @@ sys_stats
 # aggregating by electrode type
 ```{r}
 
-supp_flag = TRUE # is this analysis for the supplemental meausres, or the main ones
+supp_flag = FALSE # is this analysis for the supplemental meausres, or the main ones
 pred = 'bin'
 
 wm_ps = list()
@@ -678,11 +683,11 @@ wm_data <- mutate(wm_data, band_measure = paste(band, fc_measure, sep = '_'))
 if (supp_flag){
   # loop through other measures and remove...probably a better way to do this
   for (m in keep_measures){
-    wm_data = dplyr::filter(wm_data, fc_measure != m)
+    wm_data = dplyr::filter(wm_data, band_measure != m)
   }
 }else {
   for (m in supp_measures){
-    wm_data = dplyr::filter(wm_data, fc_measure != m)
+    wm_data = dplyr::filter(wm_data, band_measure != m)
   }
 }
 
