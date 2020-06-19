@@ -6,6 +6,7 @@ close all
 warning ON
 
 addpath(genpath('/Users/stiso/Documents/Code/interictal_spikes_fc/'))
+addpath(genpath('/Users/stiso/Documents/MATLAB/rtol-TailIndex-461a75a/'))
 addpath('/Users/stiso/Documents/MATLAB/fieldtrip-20170830/')
 addpath('/Users/stiso/Documents/MATLAB/arfit/')
 

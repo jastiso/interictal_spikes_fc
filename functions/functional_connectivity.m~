@@ -390,9 +390,9 @@ if ~exist([top_dir, 'FC/release',release, '/', protocol, '/', subj, '/', 'win_',
                                         elseif strcmp(curr_measure, 'plv')
                                             curr_data = plv;
                                         elseif strcmp(curr_measure, 'aec')
-                                            curr_data = abs(aec);
+                                            curr_data = aec;
                                         elseif strcmp(curr_measure, 'aec_ortho')
-                                            curr_data = abs(aec_ortho);
+                                            curr_data = aec_ortho;
                                         end
                                         
                                         % will becoms columns in dataframe
@@ -429,6 +429,7 @@ if ~exist([top_dir, 'FC/release',release, '/', protocol, '/', subj, '/', 'win_',
                                                 % get strengths
                                                 str(cnt:(cnt+nTrial-1)) = mean(curr_data(k, elec_idx, :),2);
                                                 ti(cnt:(cnt+nTrial-1)) = skewness(curr_data(k, elec_idx, :));
+                                                ti(cnt:(cnt+t-1)) = H; % tail index
                                                 if any(soz_idx)
                                                     soz_str(cnt:(cnt+nTrial-1)) = mean(curr_data(k, elec_idx & soz_idx,:),2);
                                                     not_soz_str(cnt:(cnt+nTrial-1)) = mean(curr_data(k, elec_idx & ~soz_idx,:),2);
@@ -512,7 +513,8 @@ if ~exist([top_dir, 'FC/release',release, '/', protocol, '/', subj, '/', 'win_',
                                                 
                                                 % get strengths
                                                 str(cnt:(cnt+nTrial-1)) = mean(curr_data(:, elec_idx),2);
-                                                ti(cnt:(cnt+nTrial-1)) = skewness(curr_data(:, elec_idx),1,2);
+                                                param = gpfit(curr_data(elec_idx, :)');
+                                                ti(cnt:(cnt+nTrial-1)) = param(1); % tail index
                                                 if any(soz_idx)
                                                     soz_str(cnt:(cnt+nTrial-1)) = mean(curr_data(:, elec_idx & soz_idx),2);
                                                     not_soz_str(cnt:(cnt+nTrial-1)) = mean(curr_data(:, elec_idx & ~soz_idx),2);
@@ -562,15 +564,16 @@ if ~exist([top_dir, 'FC/release',release, '/', protocol, '/', subj, '/', 'win_',
                                                 spike_flag = cellfun(@(x) any(chan_idx == x), spike_chan);
                                                 
                                                 % get strengths
-                                                str(cnt:(cnt+nTrial-1)) = mean(abs(curr_data(:, elec_idx)),2);
-                                                ti(cnt:(cnt+nTrial-1)) = skewness(abs(curr_data(:, elec_idx)),1,2); % tail index
+                                                str(cnt:(cnt+nTrial-1)) = mean(abs(curr_data(:, elec_idx),2));
+                                                param = gpfit(abs(curr_data(elec_idx, :)'));
+                                                ti(cnt:(cnt+nTrial-1)) = param(1); % tail index
                                                 if any(soz_idx_dir)
-                                                    soz_str(cnt:(cnt+nTrial-1)) = mean(abs(curr_data(:, elec_idx & soz_idx_dir)),2);
-                                                    not_soz_str(cnt:(cnt+nTrial-1)) = mean(abs(curr_data(:, elec_idx & ~soz_idx_dir)),2);
+                                                    soz_str(cnt:(cnt+nTrial-1)) = mean(abs(curr_data(:, elec_idx & soz_idx_dir),2));
+                                                    not_soz_str(cnt:(cnt+nTrial-1)) = mean(abs(curr_data(:, elec_idx & ~soz_idx_dir),2));
                                                 end
                                                 if any(spike_idx_dir)
-                                                    spike_str(cnt:(cnt+nTrial-1)) = mean(abs(curr_data(:, elec_idx & spike_idx_dir)),2);
-                                                    not_spike_str(cnt:(cnt+nTrial-1)) = mean(abs(curr_data(:, elec_idx & ~spike_idx_dir)),2);
+                                                    spike_str(cnt:(cnt+nTrial-1)) = mean(abs(curr_data(:, elec_idx & spike_idx_dir),2));
+                                                    not_spike_str(cnt:(cnt+nTrial-1)) = mean(abs(curr_data(:, elec_idx & ~spike_idx_dir),2));
                                                 end
                                                 
                                                 % get other elec vars
@@ -616,7 +619,7 @@ if ~exist([top_dir, 'FC/release',release, '/', protocol, '/', subj, '/', 'win_',
                                 
                                 % add to table
                                 fc_table = [fc_table; table(subj_order, exper_order, sess_order, time,...
-                                    control_pow, meas_order, band_order, str, ti, soz_str, not_soz_str, spike_str,...
+                                    control_pow, meas_order, band_order, str, soz_str, not_soz_str, spike_str,...
                                     not_spike_str, elec_order, region_order, elec_in_soz, elec_in_spike,...
                                     spike_nums, age_order, gender_order, race_order, hand_order, x, y, z, type, 'VariableNames', table_names)];
                             end

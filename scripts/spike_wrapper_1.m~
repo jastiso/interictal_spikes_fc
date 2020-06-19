@@ -24,7 +24,7 @@ detector = '';
 min_chan = 3; % minimum number of channels that need to be recruited
 win = 0.05; % size of the window to look for the minimum number of channels, in seconds
 seq = 0.015; % 15ms for spikes within a sequence, taken from Erin Conrads Brain paper
-thr = 0.005; % reject spike if they spread to a lot of channels in less than 5ms (larger than paper), also from Erins paper
+thr = 0.005; % reject spike if they spread to a lot of channels in less than 2ms, also from Erins paper
 % detector specific params
 if strcmp(detector, '')
     discharge_tol=0.005; % taken from spike function
@@ -163,16 +163,16 @@ for r = 1:numel(releases)
 
                                             % set sequence ID for all spikes
                                             % in this window
-                                            seqs = struct('idx',[],'chan',[]);
                                             if sum(win_spike) > 0
+                                                seqs = struct('idx',[],'chan',[]);
                                                 [~,leader_idx] = min(out.pos(win_spike));
                                                 leader = win_chan(leader_idx);
                                                 if sum(win_chan == leader) == 1
                                                     out.seq(win_spike) = seq_cnt;
                                                     seqs(1).idx = find(win_spike);
                                                     seqs(1).chan = win_chan;
-                                                    seq_cnt = seq_cnt + 1;
                                                 else
+                                                    warning('This sequence contains two spikes!')
                                                     % parse sequence at the
                                                     % leader.
                                                     end_pts = find(win_chan == leader);
@@ -181,8 +181,6 @@ for r = 1:numel(releases)
                                                     for m = 1:(numel(end_pts)-1)
                                                         seqs(m).chan = win_chan(end_pts(m):(end_pts(m+1)-1));
                                                         seqs(m).idx = win_idx(end_pts(m):(end_pts(m+1)-1));
-                                                        out.seq(seqs(m).idx) = seq_cnt;
-                                                        seq_cnt = seq_cnt + 1;
                                                     end
                                                 end
                                             end
@@ -193,6 +191,7 @@ for r = 1:numel(releases)
                                             for m = 1:numel(seqs)
                                                 if (numel(unique(seqs(m).chan)) >= min_chan) && ~((numel(unique(seqs(m).chan)) >= nChan*.5) && ((max(out.pos(seqs(m).idx)) - min(out.pos(seqs(m).idx))) < thr))
                                                     kept_spike(seqs(m).idx) = true;
+                                                    seq_cnt = seq_cnt + 1;
                                                 end
                                             end
                                         end
@@ -217,11 +216,11 @@ for r = 1:numel(releases)
                                     marker(j).d = MARKER.d;
                                     marker(j).fs = MARKER.fs;
                                     
-                                 catch ME
-                                     
-                                     errors(end+1).files = [subj, '_', exper, '_', sess];
-                                     errors(end).message = ME.message;
-                                 end
+                                catch ME
+                                    
+                                    errors(end+1).files = [subj, '_', exper, '_', sess];
+                                    errors(end).message = ME.message;
+                                end
                                 
                             end
                             % save
