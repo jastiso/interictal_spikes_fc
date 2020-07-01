@@ -13,7 +13,7 @@ info = jsondecode(str);
 eval(['info = info.protocols.', protocol,';']);
 
 % useful variables
-table_names = [{'subj'}, {'exper'}, {'sess'}, {'time'}, {'power'}, {'fc_measure'}, {'band'}, {'str'}, {'ti'},...
+table_names = [{'subj'}, {'exper'}, {'sess'}, {'time'}, {'power'}, {'fc_measure'}, {'band'}, {'str'},...
     {'str_soz'}, {'str_not_soz'}, {'str_spike'}, {'str_not_spike'}, {'elec'}, {'region'}, {'elec_in_soz'},...
     {'elec_has_spike'}, {'spike_num'}, {'age'}, {'gender'}, {'race'}, {'hand'}, {'x'}, {'y'}, {'z'}, {'type'}];
 %bands
@@ -44,7 +44,7 @@ coh_vars = cellfun(@(x) ['coh_', x], band_names, 'UniformOutput', false);
 plv_vars = cellfun(@(x) ['plv_', x], band_names, 'UniformOutput', false);
 aec_vars = cellfun(@(x) ['aec_', x], band_names, 'UniformOutput', false);
 
-fc_table = cell2table(cell(0,26), 'VariableNames', table_names);
+fc_table = cell2table(cell(0,25), 'VariableNames', table_names);
 
 if ~exist([top_dir, 'processed/release',release, '/', protocol, '/', subj, '/'], 'dir')
     mkdir([top_dir, 'processed/release',release, '/', protocol, '/', subj, '/']);
@@ -94,7 +94,7 @@ if ~exist([top_dir, 'FC/release',release, '/', protocol, '/', subj, '/', 'win_',
                 end
                 load([data_dir, 'artifact.mat'])
                 load([data_dir, 'demographics.mat'])
-                %try
+                try
                     % check if this subect has clean data
                     reject = zeros(numel(ft_data.trial),1);
                     for i = 1:numel(ft_data.trial)
@@ -217,8 +217,8 @@ if ~exist([top_dir, 'FC/release',release, '/', protocol, '/', subj, '/', 'win_',
                             % coh
                             fprintf('\ncoherence...\n')
                             C = get_coh(wave,bands, 'regular');
-                            Ci = get_coh(wave, bands, 'imaginary');
-                            
+                            Ci = get_coh(wave,bands,'imaginary');
+
                             % band limited, time resolved
                             fprintf('\nStarting Hilbert transform\n')
                             aec = zeros(nBand, nPair, nTrial);
@@ -306,7 +306,7 @@ if ~exist([top_dir, 'FC/release',release, '/', protocol, '/', subj, '/', 'win_',
                             fprintf('\ncross-correlation...\n')
                             xcorr_lfp = zeros(nTrial, nPair);
                             for i = 1:nTrial
-                                full_xcorr = max(xcorr(lfp.trial{i}','normalized'));
+                                full_xcorr = max(xcorr(lfp.trial{i}')./reshape(sqrt(sum(lfp.trial{i}.^2)*sum(lfp.trial{i}.^2)'),1,[]));
                                 % get upper triangle
                                 xcorr_lfp(i,:) = full_xcorr(upper_tri);
                             end
@@ -386,8 +386,8 @@ if ~exist([top_dir, 'FC/release',release, '/', protocol, '/', subj, '/', 'win_',
                                         if strcmp(curr_measure, 'coh')
                                             curr_data = C;
                                         elseif strcmp(curr_measure, 'im_coh')
-                                            curr_data = Ci;
-                                        elseif strcmp(curr_measure, 'plv')
+					    curr_data = Ci;
+					elseif strcmp(curr_measure, 'plv')
                                             curr_data = plv;
                                         elseif strcmp(curr_measure, 'aec')
                                             curr_data = aec;
@@ -397,7 +397,6 @@ if ~exist([top_dir, 'FC/release',release, '/', protocol, '/', subj, '/', 'win_',
                                         
                                         % will becoms columns in dataframe
                                         str = nan(nElec*nTrial*nBand,1);
-                                        ti = nan(nElec*nTrial*nBand,1);
                                         soz_str = nan(nElec*nTrial*nBand,1);
                                         not_soz_str = nan(nElec*nTrial*nBand,1);
                                         spike_str = nan(nElec*nTrial*nBand,1);
@@ -428,8 +427,6 @@ if ~exist([top_dir, 'FC/release',release, '/', protocol, '/', subj, '/', 'win_',
                                                     cellfun(@(x) any(strcmp(x, curr)), labelcmb(:,2));
                                                 % get strengths
                                                 str(cnt:(cnt+nTrial-1)) = mean(curr_data(k, elec_idx, :),2);
-                                                ti(cnt:(cnt+nTrial-1)) = skewness(curr_data(k, elec_idx, :));
-                                                ti(cnt:(cnt+t-1)) = H; % tail index
                                                 if any(soz_idx)
                                                     soz_str(cnt:(cnt+nTrial-1)) = mean(curr_data(k, elec_idx & soz_idx,:),2);
                                                     not_soz_str(cnt:(cnt+nTrial-1)) = mean(curr_data(k, elec_idx & ~soz_idx,:),2);
@@ -480,7 +477,6 @@ if ~exist([top_dir, 'FC/release',release, '/', protocol, '/', subj, '/', 'win_',
                                     case [{'xcorr'}, {'ar'}]
                                         % will becoms columns in dataframe
                                         str = nan(nElec*nTrial,1);
-                                        ti = nan(nElec*nTrial,1);
                                         soz_str = nan(nElec*nTrial,1);
                                         not_soz_str = nan(nElec*nTrial,1);
                                         spike_str = nan(nElec*nTrial,1);
@@ -513,8 +509,6 @@ if ~exist([top_dir, 'FC/release',release, '/', protocol, '/', subj, '/', 'win_',
                                                 
                                                 % get strengths
                                                 str(cnt:(cnt+nTrial-1)) = mean(curr_data(:, elec_idx),2);
-                                                param = gpfit(curr_data(elec_idx, :)');
-                                                ti(cnt:(cnt+nTrial-1)) = param(1); % tail index
                                                 if any(soz_idx)
                                                     soz_str(cnt:(cnt+nTrial-1)) = mean(curr_data(:, elec_idx & soz_idx),2);
                                                     not_soz_str(cnt:(cnt+nTrial-1)) = mean(curr_data(:, elec_idx & ~soz_idx),2);
@@ -564,16 +558,14 @@ if ~exist([top_dir, 'FC/release',release, '/', protocol, '/', subj, '/', 'win_',
                                                 spike_flag = cellfun(@(x) any(chan_idx == x), spike_chan);
                                                 
                                                 % get strengths
-                                                str(cnt:(cnt+nTrial-1)) = mean(abs(curr_data(:, elec_idx),2));
-                                                param = gpfit(abs(curr_data(elec_idx, :)'));
-                                                ti(cnt:(cnt+nTrial-1)) = param(1); % tail index
+                                                str(cnt:(cnt+nTrial-1)) = mean(abs(curr_data(:, elec_idx)),2);
                                                 if any(soz_idx_dir)
-                                                    soz_str(cnt:(cnt+nTrial-1)) = mean(abs(curr_data(:, elec_idx & soz_idx_dir),2));
-                                                    not_soz_str(cnt:(cnt+nTrial-1)) = mean(abs(curr_data(:, elec_idx & ~soz_idx_dir),2));
+                                                    soz_str(cnt:(cnt+nTrial-1)) = mean(abs(curr_data(:, elec_idx & soz_idx_dir)),2);
+                                                    not_soz_str(cnt:(cnt+nTrial-1)) = mean(abs(curr_data(:, elec_idx & ~soz_idx_dir)),2);
                                                 end
                                                 if any(spike_idx_dir)
-                                                    spike_str(cnt:(cnt+nTrial-1)) = mean(abs(curr_data(:, elec_idx & spike_idx_dir),2));
-                                                    not_spike_str(cnt:(cnt+nTrial-1)) = mean(abs(curr_data(:, elec_idx & ~spike_idx_dir),2));
+                                                    spike_str(cnt:(cnt+nTrial-1)) = mean(abs(curr_data(:, elec_idx & spike_idx_dir)),2);
+                                                    not_spike_str(cnt:(cnt+nTrial-1)) = mean(abs(curr_data(:, elec_idx & ~spike_idx_dir)),2);
                                                 end
                                                 
                                                 % get other elec vars
@@ -626,10 +618,10 @@ if ~exist([top_dir, 'FC/release',release, '/', protocol, '/', subj, '/', 'win_',
                         end
                         
                     end
-%                 catch ME
-%                     errors(end+1).files = [subj, '_', exper, '_', sess];
-%                     errors(end).message = ME.message;
-%                 end
+                catch ME
+                    errors(end+1).files = [subj, '_', exper, '_', sess];
+                    errors(end).message = ME.message;
+                end
             end
         end
     end

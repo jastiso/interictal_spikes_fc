@@ -18,13 +18,13 @@ eval(['cd ', top_dir])
 releases = ['1', '2', '3'];
 
 % which detector are you using? '' for Janca et al, '_delphos' for delphos
-detector = '';
+detector = '_delphos';
 
 % parameters for eliminated spikes
 min_chan = 3; % minimum number of channels that need to be recruited
 win = 0.05; % size of the window to look for the minimum number of channels, in seconds
 seq = 0.015; % 15ms for spikes within a sequence, taken from Erin Conrads Brain paper
-thr = 0.005; % reject spike if they spread to a lot of channels in less than 5ms (larger than paper), also from Erins paper
+thr = 0.002; % reject spike if they spread to a lot of channels in less than 2ms (larger than paper), also from Erins paper
 % detector specific params
 if strcmp(detector, '')
     discharge_tol=0.005; % taken from spike function
@@ -191,7 +191,8 @@ for r = 1:numel(releases)
                                             % keep if it spread to at least
                                             % 3 channels
                                             for m = 1:numel(seqs)
-                                                if (numel(unique(seqs(m).chan)) >= min_chan) && ~((numel(unique(seqs(m).chan)) >= nChan*.5) && ((max(out.pos(seqs(m).idx)) - min(out.pos(seqs(m).idx))) < thr))
+                                                time_between = diff(out.pos(seqs(m).idx));        
+                                                if (numel(unique(seqs(m).chan)) >= min_chan) && ~(numel(unique(seqs(m).chan(time_between <= thr))) >= nChan*.5)
                                                     kept_spike(seqs(m).idx) = true;
                                                 end
                                             end
@@ -245,7 +246,8 @@ for r = 1:numel(releases)
                                     out_clean(j).pos = 0;
                                     out_clean(j).dur = 0;
                                     out_clean(j).chan = 0;
-
+                                    out_clean(j).seq = 0;
+                                    seq_cnt = 0;
                                     include_length = win;%.300*MARKER.fs;
                                     nSamp = size(ft_data.trial{j},2);
                                     nSpike = numel(curr.pos);
@@ -254,20 +256,61 @@ for r = 1:numel(releases)
                                     for i = 1:nSpike
                                         curr_pos = curr.pos(i);
                                         
-                                        %if ~kept_spike(i)
-                                        win_spike = (curr.pos > curr_pos & curr.pos < (curr_pos + win));
-                                        win_chan = curr.chan(win_spike);
-                                        
-                                        if numel(unique(win_chan)) >= min_chan
-                                            kept_spike(win_spike) = true;
+                                        if kept_spike(i) == 0
+                                            win_spike = (curr.pos > curr_pos & curr.pos < (curr_pos + win));
+                                            % add spikes within 15ms of the
+                                            % last one
+                                            last_spike = max(curr.pos(win_spike));
+                                            curr_sum = 0;
+                                            while curr_sum < sum(win_spike) % stop when you stop adding new spikes
+                                                curr_sum = sum(win_spike);
+                                                win_spike = win_spike | (curr.pos > last_spike & curr.pos < (last_spike + seq));
+                                                last_spike = max(curr.pos(win_spike));
+                                            end
+                                            win_chan = curr.chan(win_spike);
+
+                                            % set sequence ID for all spikes
+                                            % in this window
+                                            seqs = struct('idx',[],'chan',[]);
+                                            if sum(win_spike) > 0
+                                                [~,leader_idx] = min(curr.pos(win_spike));
+                                                leader = win_chan(leader_idx);
+                                                if sum(win_chan == leader) == 1
+                                                    curr.seq(win_spike) = seq_cnt;
+                                                    seqs(1).idx = find(win_spike);
+                                                    seqs(1).chan = win_chan;
+                                                    seq_cnt = seq_cnt + 1;
+                                                else
+                                                    % parse sequence at the
+                                                    % leader.
+                                                    end_pts = find(win_chan == leader);
+                                                    end_pts = [end_pts, numel(win_chan) + 1];
+                                                    win_idx = find(win_spike);
+                                                    for m = 1:(numel(end_pts)-1)
+                                                        seqs(m).chan = win_chan(end_pts(m):(end_pts(m+1)-1));
+                                                        seqs(m).idx = win_idx(end_pts(m):(end_pts(m+1)-1));
+                                                        curr.seq(seqs(m).idx) = seq_cnt;
+                                                        seq_cnt = seq_cnt + 1;
+                                                    end
+                                                end
+                                            end
+                                            % for each sequence, remove events that generalize
+                                            % to 80% of elecs within 2ms,
+                                            % keep if it spread to at least
+                                            % 3 channels
+                                            for m = 1:numel(seqs)
+                                                time_between = diff(curr.pos(seqs(m).idx));        
+                                                if (numel(unique(seqs(m).chan)) >= min_chan) && ~(numel(unique(seqs(m).chan(time_between <= thr))) >= nChan*.5)
+                                                    kept_spike(seqs(m).idx) = true;
+                                                end
+                                            end
                                         end
-                                        
-                                        %end
                                     end
                                     % select only good spikes
                                     out_clean(j).pos = curr.pos(kept_spike);
                                     out_clean(j).dur = curr.dur(kept_spike);
                                     out_clean(j).chan = curr.chan(kept_spike);
+                                    out_clean(j).seq = curr.seq(kept_spike);
                                     n_spikes = [n_spikes; numel(kept_spike)/(size(ft_data.trial{j},2)*ft_data.fsample)];
                                     fprintf('This dataset had %d IEDs per second\n', numel(kept_spike)/(size(ft_data.trial{j},2)/ft_data.fsample))
                                     
@@ -279,10 +322,10 @@ for r = 1:numel(releases)
                                     end
                                     marker(j).m_clean = m;
                                     marker(j).fs = spike_srate;
-                                catch ME
-                                    errors(end+1).files = [subj, '_', exper, '_', sess];
-                                    errors(end).message = ME.message;
-                                end
+                                 catch ME
+                                     errors(end+1).files = [subj, '_', exper, '_', sess];
+                                     errors(end).message = ME.message;
+                                 end
                                 % save
                                 if ~isempty(out_clean)
                                     save([save_dir, 'spike_info', detector, '.mat'], 'out_clean', 'marker', 'min_chan', 'win');

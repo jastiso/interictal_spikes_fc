@@ -29,15 +29,11 @@ detector = ''
 ## Functions
 ```{r}
 get_beta <- function(d, ys, f) {
-  # scale x's
-  d['spike_num'] <- scale(d['spike_num'])
-  d['power'] <- scale(d['power'])
-  
   # fit models for every given predictor
   for (y in ys){
     # remove nan rows
     d_lm = d[!is.na(d[y]),]
-    
+  
     # check if multiple sess and exper
     if (length(unique(d_lm$sess_exper)) > 1) {
       f_full <- paste(f, 'sess_exper', sep = ' + ')
@@ -49,31 +45,49 @@ get_beta <- function(d, ys, f) {
     
     beta_bin_name <- paste(y, 'beta_bin', sep = '_')
     beta_num_name <- paste(y, 'beta_num', sep = '_')
+    beta_spr_name <- paste(y, 'beta_spr', sep = '_')
     if (dim(d_lm[y])[1] == 0){ # check for nans
       d[beta_bin_name] <- NaN
       d[beta_num_name] <- NaN
+      d[beta_spr_name] <- NaN
     } else {
-      # scale y
-      d_lm[y] <- scale(d_lm[y])
-      
+
       # make spike a factor - prevent factor level errors
       d_lm$bin_spike <- as.factor(d_lm$bin_spike)
       # for debugging
-      #print(paste(y, d_lm$band[1], d_lm$fc_measure[1], d_lm$region[1]))
+      # print(paste(y, d_lm$band[1], d_lm$fc_measure[1], d_lm$region[1]))
       
       # fit
       # check for singular matrix (only two values for spike_num)
-      if (length(unique(d_lm$spike_num)) > 2){
-        try({fit <- rlm(as.formula(paste(y, f_full, sep='')), data=d_lm, maxit=500)
-        d[beta_bin_name] <- fit$coefficients['bin_spikeTRUE']
-        d[beta_num_name] <- fit$coefficients['spike_num']})
-      } else {
+      cor_check1 = cor.test(d_lm$spike_num, d_lm$spike_spread) 
+      cor_check2 = cor.test(d_lm$spike_num, as.numeric(d_lm$bin_spike))
+      if (cor_check1$estimate != 1 & cor_check2$estimate != 1){
+        f_full = paste(y, f_full, sep = '')
+        try({invisible(fit <- lmp(as.formula(f_full), d_lm, singular.ok = FALSE))
+        d[beta_bin_name] <- fit$coefficients['bin_spike1']
+        d[beta_num_name] <- fit$coefficients['spike_num']
+        d[beta_spr_name] <- fit$coefficients['spike_spread']})
+      } else if (cor_check1$estimate == 1 & cor_check2$estimate != 1){
+        f_full <- str_remove(f_full, fixed("+ spike_spread"))
+        f_full = paste(y, f_full, sep = '')
+        try({invisible(fit <- lmp(as.formula(f_full), d_lm, singular.ok = FALSE))
+        d[beta_bin_name] <- fit$coefficients['bin_spike1']
+        d[beta_num_name] <- fit$coefficients['spike_num']
+        d[beta_spr_name] <- NaN})
+      } else if (cor_check2$estimate == 1 & cor_check1$estimate != 1){
         f_full <- str_remove(f_full, fixed("+ bin_spike"))
-        try({fit <- rlm(as.formula(paste(y, f_full, sep='')), data=d_lm, maxit=500)
-        d[beta_bin_name] <- fit$coefficients['bin_spikeTRUE']
-        d[beta_num_name] <- NaN})
+        f_full = paste(y, f_full, sep = '')
+        try({invisible(fit <- lmp(as.formula(f_full), d_lm, singular.ok = FALSE))
+        d[beta_spr_name] <- fit$coefficients['spike_spread']
+        d[beta_num_name] <- fit$coefficients['spike_num']
+        d[beta_bin_name] <- NaN})
+      } else {
+        f_full <- str_remove(f_full, fixed("+ spike_num + spike_spread"))
+        try({invisible(fit <- lmp(as.formula(paste(y, f_full, sep='')), d_lm, singular.ok = FALSE))
+        d[beta_bin_name] <- fit$coefficients['bin_spike1']
+        d[beta_num_name] <- NaN
+        d[beta_spr_name] <- NaN})
       }
-
     }
   }
   return(d)
@@ -104,20 +118,20 @@ for (r in releases){
 
 ```{r}
 # Do we want to make plots? faster if no
-save_plot = FALSE
+save_plot = TRUE
 
 # intiialize, make constants
 # constant fields
 const_vars <- c('subj', 'hand', 'age', 'gender', 'race')
-form <- ' ~ power + bin_spike + spike_num'
-ys = c('str', 'str_soz', 'str_not_soz', 'str_spike', 'str_not_spike')
+form <- ' ~ power + bin_spike + spike_num + spike_spread'
+ys = c('str', 'str_soz', 'str_not_soz', 'str_spike', 'str_not_spike', "ti")
 
 # final df
-col_names <- c("fc_measure", "band", 'band_measure', "str_beta_bin", "str_beta_num", "subj", "hand", "age", "gender", "race", 'n_tp')
+col_names <- c("fc_measure", "band", 'band_measure', "str_beta_bin", "str_beta_num", "str_beta_spr", "ti_beta_bin", "ti_beta_num", "ti_beta_spr", "subj", "hand", "age", "gender", "race", 'n_tp')
 net_betas <- data.frame(matrix(ncol = length(col_names), nrow = 0))
 colnames(net_betas) = col_names
 col_names = c("subj", "fc_measure", "band", 'band_measure', "str_soz_beta_bin", "str_not_soz_beta_bin", "str_spike_beta_bin", 
-              "str_not_spike_beta_bin","str_soz_beta_num", "str_not_soz_beta_num", "str_spike_beta_num", 'x', 'y', 'z', 'type',
+              "str_not_spike_beta_bin","str_soz_beta_num", "str_not_soz_beta_num", "str_spike_beta_num","str_soz_beta_spr","str_not_soz_beta_spr","str_spike_beta_spr", "str_not_spike_beta_spr", 'x', 'y', 'z', 'type',
               "str_not_spike_beta_num", "elec", "region", "n_tp", "elec_in_soz", "elec_spike", "age", "gender", "race", "hand" )
 node_betas <- data.frame(matrix(ncol = length(col_names), nrow = 0))
 colnames(node_betas) = col_names
@@ -148,28 +162,27 @@ for (s in subj){
         warning("This dataset had NaN spike numbers: check the spreadsheet")
         next
       }
-      # log transform
-      node_data$spike_num[node_data$spike_num != 0] = log10(node_data$spike_num[node_data$spike_num != 0])
+      
       # drop hg phase locking - PLV not interpretable for wide band signals
       node_data <- filter(node_data, band_measure != "hg_plv")
       # remove duplicate time points, if present
       node_data <- node_data %>% distinct()
       
       # get network level strength separated by soz and not soz
-      net_data <- group_by(node_data, sess_exper, time, spike_num, bin_spike, fc_measure, band, band_measure) %>%
+      net_data <- group_by(node_data, sess_exper, time, spike_num, spike_spread, bin_spike, fc_measure, band, band_measure) %>%
         dplyr::summarise(str = mean(str, na.rm=TRUE), str_spike = mean(str_spike, na.rm=TRUE), 
-                         str_not_spike = mean(str_not_spike, na.rm=TRUE), power = mean(power))
+                         str_not_spike = mean(str_not_spike, na.rm=TRUE), ti = mean(ti, na.rm=TRUE),  power = mean(power))
       # for soz networks, you can't average over all elecs, have to break them up
-      tmp_soz = group_by(node_data, elec_in_soz, sess_exper, time, spike_num, bin_spike, fc_measure, band, band_measure) %>%
+      tmp_soz = group_by(node_data, elec_in_soz, sess_exper, time, spike_num, bin_spike, spike_spread, fc_measure, band, band_measure) %>%
         dplyr::summarise(str_soz = mean(str_soz, na.rm=TRUE), str_not_soz = mean(str_not_soz, na.rm=TRUE))
       # remove not soz elecs from str_soz, and visa versa
       tmp_soz$str_soz[tmp_soz$elec_in_soz == 0] <- NA
       tmp_soz$str_not_soz[tmp_soz$elec_in_soz == 1] <- NA
       # now colapse over elec_in_soz
-      tmp_soz <- group_by(node_data, sess_exper, time, spike_num, bin_spike, fc_measure, band, band_measure) %>%
+      tmp_soz <- group_by(node_data, sess_exper, time, spike_num, spike_spread, bin_spike, fc_measure, band, band_measure) %>%
         dplyr::summarise(str_soz = mean(str_soz, na.rm=TRUE), str_not_soz = mean(str_not_soz, na.rm=TRUE))
       # now merge on shared features (subj, band, time, etc)
-      net_data = merge(net_data, tmp_soz, by = c('sess_exper', 'time', 'spike_num', 'bin_spike', "fc_measure", 'band', 'band_measure'))
+      net_data = merge(net_data, tmp_soz, by = c('sess_exper', 'time', 'spike_num','spike_spread', 'bin_spike', "fc_measure", 'band', 'band_measure'))
       
       # add constants
       net_data[const_vars] = node_data[const_vars][1,]
@@ -177,9 +190,10 @@ for (s in subj){
       # plots
       if (save_plot){
           p1 <- ggplot(data=net_data[net_data$spike_num != 0,], aes(x=spike_num)) + geom_histogram() + theme_minimal()
-          p2 <- ggplot(data=net_data[net_data$spike_num != 0,], aes(x=str, color=band, fill=as.factor(fc_measure))) + 
-            geom_histogram(alpha=0.7) + theme_minimal() + scale_fill_manual(values=park_palette("Saguaro")) + scale_color_grey()
-          p <- grid.arrange(p1, p2, nrow=2)
+          p2 <-ggplot(data=net_data[net_data$spike_spread != 0,], aes(x=spike_spread)) + geom_histogram() + theme_minimal()
+          p3 <- ggplot(data=net_data[net_data$spike_num != 0,], aes(x=str, color=band, fill=as.factor(fc_measure))) + 
+            geom_histogram(alpha=0.7) + theme_minimal() + scale_fill_manual(values=park_palette("GeneralGrant")) + scale_color_grey()
+          p <- grid.arrange(p1, p2, p3, nrow=3)
           ggsave(paste(RAM_dir, 'img/models/', net_data$subj, '_net_hist.png', sep=''), plot=p, device = 'png')
       }
     
@@ -187,12 +201,19 @@ for (s in subj){
       try({
         curr_net_beta <- group_by(net_data, band_measure) %>%
           group_modify(~ get_beta(.x,ys, form)) %>%
-          dplyr::summarise(n_tp = length(time), str_beta_bin = str_beta_bin[1], str_beta_num = str_beta_num[1], 
-                           str_soz_beta_bin = str_soz_beta_bin[1],  str_soz_beta_num = str_soz_beta_num[1],
-                           str_not_soz_beta_num = str_not_soz_beta_num[1], str_spike_beta_num = str_spike_beta_num[1],
-                           str_not_soz_beta_bin = str_not_soz_beta_bin[1], str_spike_beta_bin = str_spike_beta_bin[1],
-                           str_not_spike_beta_bin = str_not_spike_beta_bin[1],fc_measure = fc_measure[1],
-                           str_not_spike_beta_num = str_not_spike_beta_num[1], band = band[1])
+          dplyr::summarise(n_tp = length(time), str_beta_bin = str_beta_bin[1], str_beta_num = 
+                             str_beta_num[1], str_beta_spr = str_beta_spr[1], ti_beta_bin = 
+                             ti_beta_bin[1], ti_beta_num = ti_beta_num[1], ti_beta_spr = ti_beta_spr[1], 
+                           str_soz_beta_bin = str_soz_beta_bin[1],  str_soz_beta_num = 
+                             str_soz_beta_num[1], str_soz_beta_spr = str_soz_beta_spr[1], 
+                           str_not_soz_beta_num = str_not_soz_beta_num[1], str_spike_beta_num = 
+                             str_spike_beta_num[1], str_not_soz_beta_spr = 
+                             str_not_soz_beta_spr[1],str_not_soz_beta_bin = str_not_soz_beta_bin[1], 
+                           str_spike_beta_bin = str_spike_beta_bin[1], str_spike_beta_spr = 
+                             str_spike_beta_spr[1],str_not_spike_beta_bin = 
+                             str_not_spike_beta_bin[1],fc_measure = fc_measure[1], str_not_spike_beta_num
+                           = str_not_spike_beta_num[1], str_not_spike_beta_spr = 
+                             = str_not_spike_beta_spr[1], band = band[1])
         curr_net_beta[const_vars] <- net_data[const_vars][1,]
         
         # concatenate
@@ -203,11 +224,21 @@ for (s in subj){
       try({
           curr_node_beta <- group_by(node_data, elec, band_measure) %>%
               group_modify(~ get_beta(.x,ys, form)) %>%
-              dplyr::summarise(n_tp = length(time), elec_spike = mean(elec_has_spike), elec_in_soz = elec_in_soz[1], str_soz_beta_bin = str_soz_beta_bin[1], 
-                               str_not_soz_beta_bin = str_not_soz_beta_bin[1], str_spike_beta_bin = str_spike_beta_bin[1], 
-                               str_not_spike_beta_bin = str_not_spike_beta_bin[1], str_beta_bin = str_beta_bin[1], str_soz_beta_num = str_soz_beta_num[1], 
-                               str_not_soz_beta_num = str_not_soz_beta_num[1], str_spike_beta_num = str_spike_beta_num[1], str_beta_num = str_beta_num[1],
-                               str_not_spike_beta_num = str_not_spike_beta_num[1], fc_measure = fc_measure[1], band = band[1], region = region[1], x = x[1],
+              dplyr::summarise(n_tp = length(time), elec_spike = mean(elec_has_spike), 
+                               elec_in_soz = elec_in_soz[1], str_soz_beta_bin = str_soz_beta_bin[1], 
+                               str_not_soz_beta_bin = str_not_soz_beta_bin[1], str_spike_beta_bin = 
+                                 str_spike_beta_bin[1], str_not_spike_beta_bin = 
+                                 str_not_spike_beta_bin[1], str_beta_bin = str_beta_bin[1], 
+                               str_soz_beta_num = str_soz_beta_num[1], str_not_soz_beta_num = 
+                                 str_not_soz_beta_num[1], str_spike_beta_num = str_spike_beta_num[1], 
+                               str_beta_num = str_beta_num[1],str_not_spike_beta_num = 
+                                 str_not_spike_beta_num[1], ti_beta_bin = ti_beta_bin[1], ti_beta_num = 
+                                 ti_beta_num[1], ti_beta_spr = ti_beta_spr[1], str_beta_spr = 
+                                 str_beta_spr[1], str_soz_beta_spr = str_soz_beta_spr[1], 
+                               str_not_soz_beta_spr = str_not_soz_beta_spr[1], str_spike_beta_spr = 
+                                 str_spike_beta_spr[1], str_not_spike_beta_spr = 
+                                 str_not_spike_beta_spr[1], fc_measure = 
+                                 fc_measure[1], band = band[1], region = region[1], x = x[1],
                                y = y[1], z = z[1], type = type[1])
             curr_node_beta[const_vars] <- net_data[const_vars][1,]
             

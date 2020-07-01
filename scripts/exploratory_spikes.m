@@ -14,9 +14,12 @@ top_dir = '/Volumes/bassett-data/Jeni/RAM/';
 release_dir = [top_dir, 'release', release '/'];
 eval(['cd ', top_dir])
 
-detector = '_delphos';
+detector = '';
 
+min_chan = 3; % minimum number of channels that need to be recruited
 win = 0.05; % size of the window to look for the minimum number of channels, in seconds
+seq = 0.015; % 15ms for spikes within a sequence, taken from Erin Conrads Brain paper
+thr = 0.002;
 if strcmp(detector, '')
     discharge_tol=0.005; % taken from spike function
 else
@@ -103,12 +106,23 @@ if exist([save_dir, 'data_clean.mat'], 'file')
             out_clean(j).chan = 0;
             out_clean(j).weight = 0;
             out_clean(j).con = 0;
+            out_clean(j).seq = 0;
             % run detection alg
             [out,MARKER] = ...
                 spike_detector_hilbert_v16_byISARG(ft_data.trial{j}', header.sample_rate);
+            % sort spikes by onset
+            [sort_pos,I] = sort(out.pos, 'ascend');
+            out.pos = sort_pos;
+            out.chan = out.chan(I);
+            out.con = out.con(I);
+            out.dur = out.dur(I);
+            out.weight = out.weight(I);
+            out.pdf = out.pdf(I);
+            out.seq = nan(size(out.pos));
+            seq_cnt = 0; % counter for sequences, you can reset it here because the same number will never be in the same 1s window later on
             
             % eliminate some spikes
-            include_length = win;%.300*MARKER.fs;
+            include_length = win;
             nSamp = size(MARKER.d,1);
             nSpike = numel(out.pos);
             kept_spike = false(size(out.pos));
@@ -116,15 +130,55 @@ if exist([save_dir, 'data_clean.mat'], 'file')
             for i = 1:nSpike
                 curr_pos = out.pos(i);
                 
-                %if kept_spike(i) == 0
-                win_spike = (out.pos > curr_pos & out.pos < (curr_pos + win));
-                win_chan = out.chan(win_spike);
-                
-                if numel(unique(win_chan)) >= min_chan
-                    kept_spike(win_spike) = true;
+                if kept_spike(i) == 0
+                    win_spike = (out.pos > curr_pos & out.pos < (curr_pos + win));
+                    % add spikes within 15ms of the
+                    % last one
+                    last_spike = max(out.pos(win_spike));
+                    curr_sum = 0;
+                    while curr_sum < sum(win_spike) % stop when you stop adding new spikes
+                        curr_sum = sum(win_spike);
+                        win_spike = win_spike | (out.pos > last_spike & out.pos < (last_spike + seq));
+                        last_spike = max(out.pos(win_spike));
+                    end
+                    win_chan = out.chan(win_spike);
+                    
+                    % set sequence ID for all spikes
+                    % in this window
+                    seqs = struct('idx',[],'chan',[]);
+                    if sum(win_spike) > 0
+                        [~,leader_idx] = min(out.pos(win_spike));
+                        leader = win_chan(leader_idx);
+                        if sum(win_chan == leader) == 1
+                            out.seq(win_spike) = seq_cnt;
+                            seqs(1).idx = find(win_spike);
+                            seqs(1).chan = win_chan;
+                            seq_cnt = seq_cnt + 1;
+                        else
+                            % parse sequence at the
+                            % leader.
+                            end_pts = find(win_chan == leader);
+                            end_pts = [end_pts; numel(win_chan) + 1];
+                            win_idx = find(win_spike);
+                            for m = 1:(numel(end_pts)-1)
+                                seqs(m).chan = win_chan(end_pts(m):(end_pts(m+1)-1));
+                                seqs(m).idx = win_idx(end_pts(m):(end_pts(m+1)-1));
+                                out.seq(seqs(m).idx) = seq_cnt;
+                                seq_cnt = seq_cnt + 1;
+                            end
+                        end
+                    end
+                    % for each sequence, remove events that generalize
+                    % to 80% of elecs within 2ms,
+                    % keep if it spread to at least
+                    % 3 channels
+                    for m = 1:numel(seqs)
+                        time_between = diff(out.pos(seqs(m).idx));
+                        if (numel(unique(seqs(m).chan)) >= min_chan) && ~(numel(unique(seqs(m).chan(time_between <= thr))) >= nChan*.5)
+                            kept_spike(seqs(m).idx) = true;
+                        end
+                    end
                 end
-                
-                %end
             end
             % select only good spikes
             out_clean(j).pos = out.pos(kept_spike);
@@ -132,6 +186,8 @@ if exist([save_dir, 'data_clean.mat'], 'file')
             out_clean(j).chan = out.chan(kept_spike);
             out_clean(j).weight = out.weight(kept_spike);
             out_clean(j).con = out.con(kept_spike);
+            out_clean(j).seq = out.seq(kept_spike);
+            fprintf('This dataset had %d IEDs per second\n', numel(kept_spike)/(size(MARKER.M,1)/MARKER.fs))
             
             % get new M
             m_clean = zeros(size(MARKER.M));
@@ -143,12 +199,14 @@ if exist([save_dir, 'data_clean.mat'], 'file')
             marker(j).d = MARKER.d;
             marker(j).fs = MARKER.fs;
             
+            
+            
         end
         
     else
         for j = 1:nTrial
             curr = [];
-            results = Delphos_detector(ft_data.trial{j},ft_data.label, 'SEEG', ft_data.fsample, {'Spk'}, [], [], 40,[]);
+            results = Delphos_detector(ft_data.trial{j},ft_data.label, 'SEEG', ft_data.fsample, {'Spk'}, [], [], 50,[]);
             curr.pos = [results.markers(:).position];
             curr.dur = [results.markers(:).duration];
             curr.value = [results.markers(:).value];
@@ -184,6 +242,7 @@ if exist([save_dir, 'data_clean.mat'], 'file')
             out_clean(j).pos = curr.pos(kept_spike);
             out_clean(j).dur = curr.dur(kept_spike);
             out_clean(j).chan = curr.chan(kept_spike);
+            fprintf('This dataset had %d IEDs per second\n', numel(kept_spike)/(size(ft_data.trial{j},2)/ft_data.fsample))
             
             
             % get new M
@@ -191,12 +250,8 @@ if exist([save_dir, 'data_clean.mat'], 'file')
             for i=1:numel(out_clean(j).pos)
                 m(out_clean(j).chan(i),round(out_clean(j).pos(i)*spike_srate))=1;
             end
-            marker(j).m_clean = m';
+            marker(j).m_clean = m;
             marker(j).fs = spike_srate;
-            cfg = [];
-            cfg.resamplefs = spike_srate;
-            d = ft_resampledata(cfg,ft_data);
-            marker(j).d = d.trial{j}';
             
         end
     end
@@ -225,6 +280,9 @@ nElec = size(ft_data.trial{1},1);
 % plot length in samples
 l = 4000;
 nPlots = 10;
+
+cmax = max(out_clean(1).seq);
+
 
 for j = 1:nPlots
     % randomly pick a spike

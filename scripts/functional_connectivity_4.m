@@ -49,7 +49,7 @@ for r = 1:numel(releases)
         for s = 1:numel(subjects)
             subj = subjects{s};
             
-            functional_connectivity(protocol, release, top_dir, subj, detector, spike_win, win_length)
+            functional_connectivity_cfn(protocol, release, top_dir, subj, detector, spike_win, win_length)
         end
     end
 end

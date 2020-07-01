@@ -94,7 +94,7 @@ if ~exist([top_dir, 'FC/release',release, '/', protocol, '/', subj, '/', 'win_',
                 end
                 load([data_dir, 'artifact.mat'])
                 load([data_dir, 'demographics.mat'])
-                %try
+                try
                     % check if this subect has clean data
                     reject = zeros(numel(ft_data.trial),1);
                     for i = 1:numel(ft_data.trial)
@@ -230,8 +230,8 @@ if ~exist([top_dir, 'FC/release',release, '/', protocol, '/', subj, '/', 'win_',
                             % coh
                             fprintf('\ncoherence...\n')
                             C = get_coh(wave,bands, 'regular');
-                            Ci = get_coh(wave, bands, 'imaginary');
-                            
+                            Ci = get_coh(wave,bands,'imaginary');
+
                             % band limited, time resolved
                             fprintf('\nStarting Hilbert transform\n')
                             aec = zeros(nBand, nPair, nTrial);
@@ -319,7 +319,7 @@ if ~exist([top_dir, 'FC/release',release, '/', protocol, '/', subj, '/', 'win_',
                             fprintf('\ncross-correlation...\n')
                             xcorr_lfp = zeros(nTrial, nPair);
                             for i = 1:nTrial
-                                full_xcorr = max(xcorr(lfp.trial{i}','normalized'));
+                                full_xcorr = max(xcorr(lfp.trial{i}')./reshape(sqrt(sum(lfp.trial{i}.^2)*sum(lfp.trial{i}.^2)'),1,[]));
                                 % get upper triangle
                                 xcorr_lfp(i,:) = full_xcorr(upper_tri);
                             end
@@ -399,8 +399,8 @@ if ~exist([top_dir, 'FC/release',release, '/', protocol, '/', subj, '/', 'win_',
                                         if strcmp(curr_measure, 'coh')
                                             curr_data = C;
                                         elseif strcmp(curr_measure, 'im_coh')
-                                            curr_data = Ci;
-                                        elseif strcmp(curr_measure, 'plv')
+					                        curr_data = Ci;
+					                    elseif strcmp(curr_measure, 'plv')
                                             curr_data = plv;
                                         elseif strcmp(curr_measure, 'aec')
                                             curr_data = abs(aec);
@@ -465,7 +465,7 @@ if ~exist([top_dir, 'FC/release',release, '/', protocol, '/', subj, '/', 'win_',
                                                 % get other spike vars
                                                 spike_nums(cnt:(cnt+nTrial-1)) = spike_num;
                                                 spike_spreads(cnt:(cnt+nTrial-1)) = spike_spread;
-                                                
+
                                                 %time vars
                                                 time(cnt:(cnt+nTrial-1)) = time_vec;
                                                 
@@ -551,7 +551,7 @@ if ~exist([top_dir, 'FC/release',release, '/', protocol, '/', subj, '/', 'win_',
                                                 % get other spike vars
                                                 spike_nums(cnt:(cnt+nTrial-1)) = spike_num;
                                                 spike_spreads(cnt:(cnt+nTrial-1)) = spike_spread;
-                                                
+
                                                 %time vars
                                                 time(cnt:(cnt+nTrial-1)) = time_vec;
                                                 
@@ -580,7 +580,7 @@ if ~exist([top_dir, 'FC/release',release, '/', protocol, '/', subj, '/', 'win_',
                                                 
                                                 % get strengths
                                                 str(cnt:(cnt+nTrial-1)) = mean(abs(curr_data(:, elec_idx)),2);
-                                                ti(cnt:(cnt+nTrial-1)) = skewness(abs(curr_data(:, elec_idx)),1,2); % tail index
+                                                ti(cnt:(cnt+nTrial-1)) = skewness(abs(curr_data(:, elec_idx)),1,2);
                                                 if any(soz_idx_dir)
                                                     soz_str(cnt:(cnt+nTrial-1)) = mean(abs(curr_data(:, elec_idx & soz_idx_dir)),2);
                                                     not_soz_str(cnt:(cnt+nTrial-1)) = mean(abs(curr_data(:, elec_idx & ~soz_idx_dir)),2);
@@ -603,7 +603,7 @@ if ~exist([top_dir, 'FC/release',release, '/', protocol, '/', subj, '/', 'win_',
                                                 % get other spike vars
                                                 spike_nums(cnt:(cnt+nTrial-1)) = spike_num;
                                                 spike_spreads(cnt:(cnt+nTrial-1)) = spike_spread;
-                                                
+
                                                 %time vars
                                                 time(cnt:(cnt+nTrial-1)) = time_vec;
                                                 
@@ -641,10 +641,10 @@ if ~exist([top_dir, 'FC/release',release, '/', protocol, '/', subj, '/', 'win_',
                         end
                         
                     end
-%                 catch ME
-%                     errors(end+1).files = [subj, '_', exper, '_', sess];
-%                     errors(end).message = ME.message;
-%                 end
+                catch ME
+                    errors(end+1).files = [subj, '_', exper, '_', sess];
+                    errors(end).message = ME.message;
+                end
             end
         end
     end
