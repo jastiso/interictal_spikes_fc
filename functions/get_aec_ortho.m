@@ -12,7 +12,7 @@ nElec = size(data,1);
 nEdge = (nElec^2-nElec)/2;
 
 % normalize
-norm_data = data'.*sqrt(size(data,2))./vecnorm(data');
+norm_data = data'.*sqrt(size(data,2))./vecnorm(abs(data)');
 
 % get real value of coherency
 c = real(norm_data'*norm_data)./size(data,2);
