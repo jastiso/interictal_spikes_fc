@@ -21,13 +21,13 @@ py_config() # check it is using the specified version
 RAM_dir = '/Volumes/bassett-data/Jeni/RAM/'
 
 # parameters
-win = 1
+win = 2
 detector = ''
 
 ```
 
 ## Functions
-```{r}
+```{r, echo=FALSE, results=FALSE}
 get_beta <- function(d, ys, f) {
   # fit models for every given predictor
   for (y in ys){
@@ -92,7 +92,6 @@ get_beta <- function(d, ys, f) {
     }
   }
   return(d)
-  flush.console()
 }
 ```
 
@@ -146,6 +145,7 @@ for (s in subj){
     node_data <- read.csv(curr_csv, header = TRUE, sep = ",", stringsAsFactors = FALSE,
                           colClasses=c(gender='character', hand='character', race='numeric', age='numeric', spike_num='numeric'))
     if (dim(node_data)[1] > 0){
+      cat("\014")
       message(paste('Subj', s)) 
       # add band measure, combined string, for easy indexing (keep separate for plotting)
       node_data <- mutate(node_data, band_measure = paste(band, fc_measure, sep = '_'))
@@ -167,6 +167,7 @@ for (s in subj){
       
       # drop hg phase locking - PLV not interpretable for wide band signals
       node_data <- filter(node_data, band_measure != "hg_plv")
+      node_data <- filter(node_data, band_measure != "hg_iplv")
       # remove duplicate time points, if present
       node_data <- node_data %>% distinct()
       

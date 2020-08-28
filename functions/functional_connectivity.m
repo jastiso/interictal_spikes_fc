@@ -279,6 +279,7 @@ if ~exist([top_dir, 'FC/release',release, '/', protocol, '/', subj, '/', 'win_',
                                 if curr_range(1) < 60
                                     for j = 1:nTrial
                                         curr_phase = atan2(imag(bp_data.trial{j}),real(bp_data.trial{j}));
+                                        
                                         cnt = 0;
                                         for k = 1:nElec
                                             for m = (k+1):nElec

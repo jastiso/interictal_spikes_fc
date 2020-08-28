@@ -1,6 +1,7 @@
-function [] = functional_connectivity(protocol, release, top_dir, subj, detector, spike_win, win_length)
+function [] = functional_connectivity_cfn(protocol, release, top_dir, subj, detector, spike_win, win_length)
 % main function for functional connectivity - helps with paralelizing
-
+% do you want to save all your FC mtrices? faster if no
+save_flag = false;
 release_dir = [top_dir, 'release', release '/'];
 
 % get global info struct
@@ -22,7 +23,7 @@ bands = [4, 8; 9, 15; 16 25; 36, 70; 71, 150];
 band_names = [{'theta'}, {'alpha'}, {'beta'}, {'gamma'}, {'hg'}];
 
 %fc measures
-measure_names = [{'coh'}, {'im_coh'}, {'plv'}, {'aec'}, {'aec_ortho'}, {'xcorr'}, {'ar'}, {'pac'}];
+measure_names = [{'coh'}, {'im_coh'}, {'plv'}, {'iplv'}, {'aec'}, {'aec_ortho'}, {'xcorr'}, {'ar'}, {'pac'}];
 %parameters
 pmin = 1; pmax = 1; % order for AR model
 % constants
@@ -94,7 +95,7 @@ if ~exist([top_dir, 'FC/release',release, '/', protocol, '/', subj, '/', 'win_',
                 end
                 load([data_dir, 'artifact.mat'])
                 load([data_dir, 'demographics.mat'])
-                try
+                %try
                     % check if this subect has clean data
                     reject = zeros(numel(ft_data.trial),1);
                     for i = 1:numel(ft_data.trial)
@@ -115,7 +116,7 @@ if ~exist([top_dir, 'FC/release',release, '/', protocol, '/', subj, '/', 'win_',
                         nPair = (nElec^2-nElec)/2;
                         
                         % constants
-                        upper_tri = reshape(triu(true(nElec),1),[],1);
+                        lower_tri = reshape(tril(true(nElec),-1),[],1);
                         
                         % get window start times
                         trl = [];
@@ -231,12 +232,13 @@ if ~exist([top_dir, 'FC/release',release, '/', protocol, '/', subj, '/', 'win_',
                             fprintf('\ncoherence...\n')
                             C = get_coh(wave,bands, 'regular');
                             Ci = get_coh(wave,bands,'imaginary');
-
+                            
                             % band limited, time resolved
                             fprintf('\nStarting Hilbert transform\n')
                             aec = zeros(nBand, nPair, nTrial);
                             aec_ortho = zeros(nBand, nPair, nTrial);
                             plv = nan(nBand, nPair, nTrial);
+                            iplv = nan(nBand, nPair, nTrial);
                             bp_all_bands = cell(nBand,1);
                             for i = 1:nBand
                                 fprintf('\n%s band...\n', band_names{i})
@@ -260,7 +262,7 @@ if ~exist([top_dir, 'FC/release',release, '/', protocol, '/', subj, '/', 'win_',
                                 % unorthogonalized
                                 for j = 1:nTrial
                                     full_corr = corr(abs(bp_data.trial{j}'));
-                                    aec(i,:,j) = full_corr(upper_tri);
+                                    aec(i,:,j) = full_corr(lower_tri);
                                 end
                                 
                                 % orthogonalized Brookes et al., 2012, 2014
@@ -269,7 +271,7 @@ if ~exist([top_dir, 'FC/release',release, '/', protocol, '/', subj, '/', 'win_',
                                 % z2 with z2 - R(c)*z1, where R(c) is
                                 % the real part of coherence
                                 for j = 1:nTrial
-                                    aec_ortho(i,:,j) = get_aec_ortho(bp_data.trial{j});
+                                    aec_ortho(i,:,j) = get_aec_ortho_cfn(bp_data.trial{j});
                                 end
                                 
                                 % plv
@@ -278,15 +280,11 @@ if ~exist([top_dir, 'FC/release',release, '/', protocol, '/', subj, '/', 'win_',
                                 % band signals, like high gamma
                                 if curr_range(1) < 60
                                     for j = 1:nTrial
-                                        curr_phase = atan2(imag(bp_data.trial{j}),real(bp_data.trial{j}));
-                                        cnt = 0;
-                                        for k = 1:nElec
-                                            for m = (k+1):nElec
-                                                cnt = cnt + 1;
-                                                dphase = curr_phase(k,:) - curr_phase(m,:);
-                                                plv(i,cnt,j) = abs(mean(exp(1i*dphase)));
-                                            end
-                                        end
+                                        curr_phase = bp_data.trial{j}./abs(bp_data.trial{j});
+                                        curr_plv = abs(curr_phase*curr_phase')/(size(bp_data.trial{j},2));
+                                        curr_iplv = imag(curr_phase*curr_phase')/size(bp_data.trial{j},2);
+                                        plv(i,:,j) = curr_plv(lower_tri);
+                                        iplv(i,:,j) = curr_iplv(lower_tri);
                                     end
                                 end
                             end
@@ -321,7 +319,7 @@ if ~exist([top_dir, 'FC/release',release, '/', protocol, '/', subj, '/', 'win_',
                             for i = 1:nTrial
                                 full_xcorr = max(xcorr(lfp.trial{i}')./reshape(sqrt(sum(lfp.trial{i}.^2)*sum(lfp.trial{i}.^2)'),1,[]));
                                 % get upper triangle
-                                xcorr_lfp(i,:) = full_xcorr(upper_tri);
+                                xcorr_lfp(i,:) = full_xcorr(lower_tri);
                             end
                             
                             % ar
@@ -340,46 +338,47 @@ if ~exist([top_dir, 'FC/release',release, '/', protocol, '/', subj, '/', 'win_',
                             end
                             
                             fprintf('Done!\n');
-                            % save things
-                            cell_ft = struct2cell(win_data);
-                            names_ft = fieldnames(win_data);
-                            keep_idx = ~(strcmpi(names_ft, 'time') | strcmpi(names_ft, 'trial'));
-                            ft_header = cell2struct(cell_ft(keep_idx), names_ft(keep_idx));
-                            
-                            % add fields for mtmFFT
-                            fc_header = ft_header;
-                            fc_header.analysis_cfg = wave.cfg;
-                            
-                            % power
-                            save([save_dir, 'power.mat'], 'pow', 'bands', 'label', 'fc_header', 'spike_idx')
-                            
-                            % coh
-                            save([save_dir, 'mtcoherence.mat'], 'C', 'bands', 'labelcmb', 'fc_header', 'spike_idx')
-                            
-                            % add fields for hilbert
-                            fc_header = ft_header;
-                            fc_header.analysis_cfg = bp_data.cfg;
-                            
-                            % aec
-                            save([save_dir, 'amp_env_corr.mat'], 'aec', 'bands', 'labelcmb', 'fc_header', 'spike_idx')
-                            save([save_dir, 'amp_env_corr_ortho.mat'], 'aec_ortho', 'bands', 'labelcmb', 'fc_header', 'spike_idx')
-                            
-                            % plv
-                            save([save_dir, 'phase_lock_val.mat'], 'plv', 'bands', 'labelcmb', 'fc_header', 'spike_idx')
-                            
-                            % pac
-                            %save([save_dir, 'phase_amp_coupl.mat'], 'pac', 'mi', 'bands', 'bands_cf', 'labelcmb', 'fc_header', 'spike_idx')
-                            
-                            % add fields for low pass
-                            fc_header = ft_header;
-                            fc_header.analysis_cfg = lfp.cfg;
-                            
-                            % xcor
-                            save([save_dir, 'crosscorr.mat'], 'xcorr_lfp', 'labelcmb', 'fc_header', 'spike_idx')
-                            
-                            % ar
-                            save([save_dir, 'autoreg.mat'], 'ar', 'labelcmb_dir', 'fc_header', 'spike_idx')
-                            
+                            if save_flag
+                                % save things
+                                cell_ft = struct2cell(win_data);
+                                names_ft = fieldnames(win_data);
+                                keep_idx = ~(strcmpi(names_ft, 'time') | strcmpi(names_ft, 'trial'));
+                                ft_header = cell2struct(cell_ft(keep_idx), names_ft(keep_idx));
+                                
+                                % add fields for mtmFFT
+                                fc_header = ft_header;
+                                fc_header.analysis_cfg = wave.cfg;
+                                
+                                % power
+                                save([save_dir, 'power.mat'], 'pow', 'bands', 'label', 'fc_header', 'spike_idx')
+                                
+                                % coh
+                                save([save_dir, 'mtcoherence.mat'], 'C', 'bands', 'labelcmb', 'fc_header', 'spike_idx')
+                                
+                                % add fields for hilbert
+                                fc_header = ft_header;
+                                fc_header.analysis_cfg = bp_data.cfg;
+                                
+                                % aec
+                                save([save_dir, 'amp_env_corr.mat'], 'aec', 'bands', 'labelcmb', 'fc_header', 'spike_idx')
+                                save([save_dir, 'amp_env_corr_ortho.mat'], 'aec_ortho', 'bands', 'labelcmb', 'fc_header', 'spike_idx')
+                                
+                                % plv
+                                save([save_dir, 'phase_lock_val.mat'], 'plv', 'bands', 'labelcmb', 'fc_header', 'spike_idx')
+                                
+                                % pac
+                                %save([save_dir, 'phase_amp_coupl.mat'], 'pac', 'mi', 'bands', 'bands_cf', 'labelcmb', 'fc_header', 'spike_idx')
+                                
+                                % add fields for low pass
+                                fc_header = ft_header;
+                                fc_header.analysis_cfg = lfp.cfg;
+                                
+                                % xcor
+                                save([save_dir, 'crosscorr.mat'], 'xcorr_lfp', 'labelcmb', 'fc_header', 'spike_idx')
+                                
+                                % ar
+                                save([save_dir, 'autoreg.mat'], 'ar', 'labelcmb_dir', 'fc_header', 'spike_idx')
+                            end
                             
                             % get strengths, and add to table
                             soz_idx = cellfun(@(x) any(strcmp(x, soz)), labelcmb(:,1)) |...
@@ -394,14 +393,16 @@ if ~exist([top_dir, 'FC/release',release, '/', protocol, '/', subj, '/', 'win_',
                             for i = 1:nMeasures
                                 curr_measure = measure_names{i};
                                 switch curr_measure
-                                    case [{'coh'}, {'im_coh'}, {'plv'}, {'aec'}, {'aec_ortho'}]
+                                    case [{'coh'}, {'im_coh'}, {'plv'}, {'iplv'}, {'aec'}, {'aec_ortho'}]
                                         % get measure of interest
                                         if strcmp(curr_measure, 'coh')
                                             curr_data = C;
                                         elseif strcmp(curr_measure, 'im_coh')
-					                        curr_data = Ci;
-					                    elseif strcmp(curr_measure, 'plv')
+                                            curr_data = Ci;
+                                        elseif strcmp(curr_measure, 'plv')
                                             curr_data = plv;
+                                        elseif strcmp(curr_measure, 'iplv')
+                                            curr_data = abs(iplv);
                                         elseif strcmp(curr_measure, 'aec')
                                             curr_data = abs(aec);
                                         elseif strcmp(curr_measure, 'aec_ortho')
@@ -465,7 +466,7 @@ if ~exist([top_dir, 'FC/release',release, '/', protocol, '/', subj, '/', 'win_',
                                                 % get other spike vars
                                                 spike_nums(cnt:(cnt+nTrial-1)) = spike_num;
                                                 spike_spreads(cnt:(cnt+nTrial-1)) = spike_spread;
-
+                                                
                                                 %time vars
                                                 time(cnt:(cnt+nTrial-1)) = time_vec;
                                                 
@@ -551,7 +552,7 @@ if ~exist([top_dir, 'FC/release',release, '/', protocol, '/', subj, '/', 'win_',
                                                 % get other spike vars
                                                 spike_nums(cnt:(cnt+nTrial-1)) = spike_num;
                                                 spike_spreads(cnt:(cnt+nTrial-1)) = spike_spread;
-
+                                                
                                                 %time vars
                                                 time(cnt:(cnt+nTrial-1)) = time_vec;
                                                 
@@ -603,7 +604,7 @@ if ~exist([top_dir, 'FC/release',release, '/', protocol, '/', subj, '/', 'win_',
                                                 % get other spike vars
                                                 spike_nums(cnt:(cnt+nTrial-1)) = spike_num;
                                                 spike_spreads(cnt:(cnt+nTrial-1)) = spike_spread;
-
+                                                
                                                 %time vars
                                                 time(cnt:(cnt+nTrial-1)) = time_vec;
                                                 
@@ -641,10 +642,10 @@ if ~exist([top_dir, 'FC/release',release, '/', protocol, '/', subj, '/', 'win_',
                         end
                         
                     end
-                catch ME
-                    errors(end+1).files = [subj, '_', exper, '_', sess];
-                    errors(end).message = ME.message;
-                end
+%                 catch ME
+%                     errors(end+1).files = [subj, '_', exper, '_', sess];
+%                     errors(end).message = ME.message;
+%                 end
             end
         end
     end
