@@ -558,7 +558,7 @@ for (m in fc){
   if (pred == 'num'){
     fit = aovp(data=curr, str_beta_num ~ locus + hem + race + gender + hand + age + Etiology + Lesional + SeizureAge + contacts + Institution)
   } else if (pred == 'bin') {
-    fit = aovp(data=curr, str_beta_bin ~ locus  + race + gender + age + Etiology + Lesional + SeizureAge + contacts  + hem)
+    fit = aovp(data=curr, str_beta_bin ~ locus + hand + race + gender + age + Etiology + Lesional + SeizureAge + contacts  + hem + Institution)
   } else {
     fit = aovp(data=curr, str_beta_spr ~ locus + hem + race + gender + hand + age + Etiology + Lesional + SeizureAge + contacts + Institution)
   }
@@ -575,9 +575,15 @@ supp_flag = FALSE # are you using main measures, or supplemental measures
 
 
 all_data = read.csv(paste('/Volumes/bassett-data/Jeni/RAM/group_analysis/win_', as.character(win), '/net_dem_data', detector, '.csv', sep=''))
+
+# extra cleaning
 all_data <- mutate(all_data, band_measure = tolower(paste(Frequency.Band, Measure, sep = '_')))
 all_data[paste('str_beta_',pred,sep='')] = as.numeric(unlist(all_data[paste('str_beta_',pred,sep='')]))
 all_data[c('age','Education','SeizureAge')] = as.numeric(unlist(all_data[c('age','Education','SeizureAge')]))
+all_data$race = as.factor(all_data$race)
+all_data[all_data$hem == '','hem'] = NaN
+all_data[all_data$locus == '','locus'] = NaN
+
 if (supp_flag){
   # loop through other measures and remove...probably a better way to do this
   for (m in keep_measures){
@@ -588,23 +594,31 @@ if (supp_flag){
     all_data = dplyr::filter(all_data, band_measure != m)
   }
 }
+
+lambdas = list()
 fc = unique(all_data$band_measure)
 for (m in fc){
   print(m)
   curr = dplyr::filter(all_data, band_measure == m)
   curr = curr[!is.na(curr[,paste('str_beta_',pred,sep='')]),]
-  x = model.matrix(~locus + hem + race + gender + age + Etiology + Lesional + SeizureAge + contacts + Institution + hand + Education, curr)[, -1]
-  groups = c(rep(1,each=7),rep(2,each=2),rep(3,each=3),rep(4,each=2),5,rep(6,each=9),rep(7,each=2),8,rep(9,each=3),rep(10,each=7),rep(11,each=4),12)
+  curr = curr[,c('locus', 'hem', 'race', 'gender', 'age', 'Etiology', 'Lesional','SeizureAge',
+                'contacts','Institution', 'hand','avg',paste('str_beta_',pred,sep=''))]
+  curr = na.omit(curr)
+  x = model.matrix(~locus + hem + race + gender + age + Etiology + Lesional + SeizureAge + contacts + Institution + hand + avg, curr)[, -1]
+  groups = c(rep(1,each=7),rep(2,each=2),rep(3,each=3),rep(4,each=1),5,rep(6,each=9),rep(7,each=2),8,rep(9,each=3),rep(10,each=7),rep(11,each=4), 12)
   if (pred == 'num'){
     y = unlist(curr$str_beta_num)
-    fit = gglasso(x=x,y=y,group=groups)
   } else if (pred == 'bin') {
     y = unlist(curr$str_beta_bin)
-    fit = gglasso(x=x,y=y,group=groups)
   } else {
     y = unlist(curr$str_beta_spr)
-    fit = gglasso(x=x,y=y,group=groups)
   }
+  fit_cv = cv.gglasso(x=x,y=y,group=groups,nfolds = 3)
+  fit = gglasso(x=x,y=y,group=groups,lambda=fit_cv$lambda.min)
+  coeffs = coef(fit, s=fit$lambda.min)
+  names = attr(coeffs,'dimnames')[[1]]
+  coeffs = coeffs[coeffs>0]
+  print(names[order(-abs(coeffs))])
   
 }
 
