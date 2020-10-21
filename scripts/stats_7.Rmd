@@ -10,7 +10,7 @@ knitr::opts_chunk$set(echo = TRUE)
 rm(list=ls())
 
 if (!require("pacman")) install.packages("pacman")
-pacman::p_load(ggplot2, dplyr, lm.beta, RColorBrewer, nationalparkcolors, rjson, reticulate, gridExtra, wesanderson, MASS, outliers, lmerTest, stringr, lmPerm)
+pacman::p_load(ggplot2, dplyr, lm.beta, RColorBrewer, nationalparkcolors, rjson, reticulate, gridExtra, wesanderson, MASS, outliers, lmerTest, stringr, lmPerm, glmnet)
 
 # set up python for later
 use_python("/Users/stiso/anaconda3/bin/python") # path to python binary
@@ -42,7 +42,7 @@ spike_data <- mutate(spike_data, band_measure = paste(Frequency.Band, Measure, s
 
 Are distributions of effect sizes different from 0?
 ```{r}
-pred = 'spr'# bin or num or spr
+pred = 'bin'# bin or num or spr
 aec_flag = 'aec$' # which aec do you want to EXCLUDE, orth or regular. The carrot mean "starts with", $                      means 'ends with'
 coh_flag = '^coh' # 
 plv_flag = 'iplv$'
@@ -69,7 +69,7 @@ stats
 
 ```
 ```{r}
-pred = 'bin'# bin or num or spr
+pred = 'spr'# bin or num or spr
 aec_flag = 'aec$' # which aec do you want to EXCLUDE, orth or regular. The carrot mean "starts with", $                      means 'ends with'
 coh_flag = '^coh' # 
 plv_flag = 'iplv$'
@@ -204,8 +204,8 @@ spike_stats
 ```
 Similarity across predictors
 ```{r}
-pred1 = 'num'# bin or num or spr
-pred2 = 'spr'
+pred1 = 'spr'# bin or num or spr
+pred2 = 'bin'
 aec_flag = 'aec$' # which aec do you want to EXCLUDE, orth or regular. The carrot mean "starts with", $                      means 'ends with'
 coh_flag = '^coh' # 
 plv_flag = 'iplv$'
@@ -215,7 +215,7 @@ bfc = unique(curr_measures)
 ps = list()
 rs = list()
 ns = list()
-bands=list()
+measures=list()
 for (m in bfc){
   print(m)
   curr <- filter(net_data, band_measure == m)
@@ -224,28 +224,36 @@ for (m in bfc){
   ps = c(ps, stat$p.value)
   rs = c(rs, stat$estimate)
   ns = c(ns, min(c(length(na.omit(unlist(curr[paste('str_beta_', pred1, sep='')]))), length(na.omit(unlist(curr[paste('str_beta_', pred2, sep='')]))))))
-  bands = c(bands, curr$Frequency.Band[1])
+  measures = c(measures, curr$Measure[1])
 }
 
 # corrections based on aec or aec_orth, not both
-stats_pred = data.frame(p = p.adjust(ps, method='bonferroni'), r = unlist(rs), n = unlist(ns), measure = bfc, band = unlist(bands), sig = p.adjust(ps, method="bonferroni") < 0.05)
+stats_pred = data.frame(p = p.adjust(ps, method='bonferroni'), r = unlist(rs), n = unlist(ns), measure = bfc, meas = unlist(measures), sig = p.adjust(ps, method="bonferroni") < 0.05)
 stats_pred
 
 ```
 ```{r}
-dplyr::summarize(group_by(stats_pred, band), meanr = mean(r), meanp = mean(p))
+plot_data = dplyr::summarize(group_by(stats_pred, meas), meanr = mean(r), semr = sqrt(var(r)/length(r)), meanp = mean(p))
+plot_data$meas = factor(plot_data$meas, levels=c(2,5,7,8,3))
+
+g = ggplot(plot_data, aes(x=meas, y=meanr, fill=meas)) +
+  geom_bar(stat='identity') + geom_errorbar(aes(ymin=meanr-semr, ymax=meanr+semr), width=.2) +
+  theme_minimal() + scale_fill_manual(values=park_palette('Acadia',5)[c(2,4,5,3,1)]) + ylim(-.1,.8)
+g
+ggsave(paste('../img/pred_sim', pred1, '_', pred2, '.pdf', sep=''))
+
 ```
 
 The rest of the stats are concerning parsing variability across indidividuals and channels
 ```{r}
 net_data <-mutate(net_data, band_measure_clean = tolower(paste(Frequency.Band, Measure, sep = '_')))
-keep_measures = c('theta_aec_ortho', 'theta_im_coh', 'alpha_aec_ortho', 'alpha_im_coh', 'beta_aec_ortho', 'beta_im_coh', 'gamma_aec_ortho', 'gamma_im_coh', 'high gamma_aec_ortho',
-                  'high gamma_im_coh', 'lfp_xcorr')
+keep_measures = c('theta_aec_ortho', 'theta_im_coh', 'alpha_aec_ortho',  'beta_aec_ortho', 'beta_im_coh', 'gamma_aec_ortho', 'gamma_im_coh', 'high gamma_aec_ortho',
+                  'high gamma_im_coh')
 bm = unique(net_data$band_measure_clean)
 supp_measures = bm[which(!bm %in% keep_measures)]
 
-node_keep_measures = c('theta_aec_ortho', 'theta_im_coh','alpha_aec_ortho', 'alpha_im_coh', 'beta_aec_ortho', 'beta_im_coh', 'gamma_aec_ortho', 'gamma_im_coh', 'hg_aec_ortho', 
-                       'hg_im_coh', 'broadband_xcorr')
+node_keep_measures = c('theta_aec_ortho', 'theta_im_coh','alpha_aec_ortho',  'beta_aec_ortho', 'beta_im_coh', 'gamma_aec_ortho', 'gamma_im_coh', 'hg_aec_ortho', 
+                       'hg_im_coh')
 
 ```
 
@@ -285,7 +293,7 @@ for (m in fc){
   curr = curr[!is.na(curr[,paste('str_beta_', pred, sep='')]),]
   nObs = dim(curr)[1]
   nRow = dim(resid)[1]
-  fit = lm(data=curr, paste('pca1 ~ str_beta_', pred, '+ race + gender + age + hand', sep=''))
+  fit = lm(data=curr, paste('pca1 ~ str_beta_', pred, '+ race + gender + age + hand + Education + Etiology + SeizureAge', sep=''))
   print(anova(fit))
       
   # get stats
@@ -297,7 +305,51 @@ for (m in fc){
 task_stats = data.frame(p = unlist(task_ps), f = unlist(task_ts), df = unlist(task_df), band_measure = fc, sigMC = p.adjust(task_ps, method = 'bonferroni') < 0.05, sig = task_ps < 0.05)
 task_stats
 ```
+```{r}
+# save residuals
+ # general task performance
+supp_flag = FALSE # are you using main measures, or supplemental measures
 
+subj = list()
+band_measures = list()
+resids = list()
+bands = list()
+tasks = c('TH', 'YC', 'PAL', 'FR', 'catFR')
+net_task_data = read.csv(paste('/Volumes/bassett-data/Jeni/RAM/group_analysis/win_', as.character(win), '/net_task_data_clean', detector, '.csv', sep=''))
+net_task_data$race <- as.factor(net_task_data$race)
+net_task_data <- mutate(net_task_data, band_measure = paste(Frequency.Band, Measure, sep = '_'))
+net_task_data$band_measure <- tolower(net_task_data$band_measure)
+if (supp_flag){
+  # loop through other measures and remove...probably a better way to do this
+  for (m in keep_measures){
+    net_task_data = dplyr::filter(net_task_data, band_measure != m)
+  }
+}else {
+  for (m in supp_measures){
+    net_task_data = dplyr::filter(net_task_data, band_measure != m)
+  }
+}
+fc = unique(net_task_data$band_measure)
+fc = fc[fc != 'high gamma_iplv']
+
+for (m in fc){
+  print(m)
+  curr = dplyr::filter(net_task_data, band_measure == m)
+  curr = na.omit(curr[,c('subj', 'band_measure', 'Frequency.Band', 'Measure', 'pca1', 'Etiology', 'race', 'gender', 'age', 'hand', 'Education', 'SeizureAge')])
+  nObs = dim(curr)[1]
+  nRow = dim(resid)[1]
+  fit = lm(data=curr, pca1~race + gender + age + hand + Education + Etiology + SeizureAge)
+
+  # get stats
+  subj = c(subj, as.character(curr$subj))
+  band_measures = c(band_measures, curr$band_measure)
+  bands = c(bands, as.character(curr$Frequency.Band))
+  resids = c(resids, fit$residuals)
+}
+
+task_resid = data.frame(subj = unlist(subj), band_measure = unlist(band_measures), resid = unlist(resids), band = bands)
+write.csv(task_resid, paste('/Volumes/bassett-data/Jeni/RAM/group_analysis/win_', as.character(win), '/net_task_data_resid', detector, '.csv', sep=''))
+```
 
 # With demographics
 
@@ -358,13 +410,13 @@ if (supp_flag){
 fc = unique(soz_loc_data$band_measure)
 for (m in fc){
   print(m)
-  curr = dplyr::filter(soz_loc_data, cov =='t', band_measure == m)
+  curr = dplyr::filter(soz_loc_data,  band_measure == m)
   if (pred == 'num'){
-    fit = aovp(data=curr, str_beta_num ~ locus + race + gender + hand + age)
+    fit = aovp(data=curr, str_beta_num ~ locus + race + gender + hand + age + Etiology + Lesional + Education + SeizureAge + contacts)
   } else if (pred == 'bin') {
-    fit = aovp(data=curr, str_beta_bin ~ locus + race + gender + hand + age)
+    fit = aovp(data=curr, str_beta_bin ~ locus + race + gender + hand + age + Etiology + Lesional + Education + SeizureAge + contacts)
   } else
-    fit = aovp(data=curr, str_beta_spr ~ locus + race + gender + hand + age)
+    fit = aovp(data=curr, str_beta_spr ~ locus + race + gender + hand + age + Etiology + Lesional + Education + SeizureAge  + contacts)
   print(anova(fit))
   loc_ps = c(loc_ps, summary(fit)[[1]]$`Pr(Prob)`[1])
   loc_ts = c(loc_ts, summary(fit)[[1]]$`R Mean Sq`[1])
@@ -375,6 +427,12 @@ loc_stats = data.frame(p = unlist(loc_ps), f = unlist(loc_ts), df = unlist(loc_d
 loc_stats
 
 ```
+```{r}
+fit = aovp(data=curr, str_beta_num ~ locus + race + gender + hand + age)
+summary(fit)
+
+```
+
 ## Pathology
 # lesional vs nonlesional
 ```{r}
@@ -423,7 +481,7 @@ les_stats
 
 # etiology
 ```{r}
-pred = 'num'
+pred = 'bin'
 supp_flag = FALSE # are you using main measures, or supplemental measures
 
 clin_ps = list()
@@ -433,7 +491,7 @@ clin_data = read.csv(paste('/Volumes/bassett-data/Jeni/RAM/group_analysis/win_',
 clin_data <- mutate(clin_data, band_measure = tolower(paste(Frequency.Band, Measure, sep = '_')))
 # drop categories that have less than X people
 value_counts = as.data.frame(table(clin_data[clin_data$band_measure == 'alpha_aec_ortho',]$Etiology))
-idx = value_counts$Freq > 2
+idx = value_counts$Freq > 10
 keep_vars = value_counts[idx,'Var1']
 clin_data = clin_data[unlist(lapply(clin_data$Etiology, function(x) any(grepl(x, keep_vars)))),]
 # remove 'unkown'
@@ -453,11 +511,11 @@ for (m in fc){
   print(m)
   curr = dplyr::filter(clin_data, band_measure == m)
   if (pred == 'num'){
-    fit = aovp(data=curr, str_beta_num ~ Etiology + race + gender + age)
+    fit = aovp(data=curr, str_beta_num ~ locus + hem + race + gender + hand + age + Etiology + Lesional + Education + SeizureAge + contacts + Institution)
   } else if (pred == 'bin') {
-    fit = aovp(data=curr, str_beta_bin ~ Etiology + race + gender + age)
+    fit = aovp(data=curr, str_beta_bin ~ locus + hem + race + gender + hand + age + Etiology + Lesional + Education + SeizureAge + contacts + Institution)
   } else {
-    fit = aovp(data=curr, str_beta_spr ~ Etiology + race + gender + age)
+    fit = aovp(data=curr, str_beta_spr ~ locus + hem + race + gender + hand + age + Etiology + Lesional + Education + SeizureAge + contacts + Institution)
   }
   
   print(summary(fit))
@@ -473,7 +531,85 @@ clin_stats
 ```
 
 
+## Which variables explain the most variance
+# first show that none are significant
+```{r}
+pred = 'bin'
+supp_flag = FALSE # are you using main measures, or supplemental measures
 
+
+all_data = read.csv(paste('/Volumes/bassett-data/Jeni/RAM/group_analysis/win_', as.character(win), '/net_dem_data', detector, '.csv', sep=''))
+all_data <- mutate(all_data, band_measure = tolower(paste(Frequency.Band, Measure, sep = '_')))
+all_data[paste('str_beta_',pred,sep='')] = as.numeric(unlist(all_data[paste('str_beta_',pred,sep='')]))
+if (supp_flag){
+  # loop through other measures and remove...probably a better way to do this
+  for (m in keep_measures){
+    all_data = dplyr::filter(all_data, band_measure != m)
+  }
+}else {
+  for (m in supp_measures){
+    all_data = dplyr::filter(all_data, band_measure != m)
+  }
+}
+fc = unique(all_data$band_measure)
+for (m in fc){
+  print(m)
+  curr = dplyr::filter(all_data, band_measure == m)
+  if (pred == 'num'){
+    fit = aovp(data=curr, str_beta_num ~ locus + hem + race + gender + hand + age + Etiology + Lesional + SeizureAge + contacts + Institution)
+  } else if (pred == 'bin') {
+    fit = aovp(data=curr, str_beta_bin ~ locus  + race + gender + age + Etiology + Lesional + SeizureAge + contacts  + hem)
+  } else {
+    fit = aovp(data=curr, str_beta_spr ~ locus + hem + race + gender + hand + age + Etiology + Lesional + SeizureAge + contacts + Institution)
+  }
+  
+  print(summary(fit))
+}
+
+
+```
+# fit ridge regression
+```{r}
+pred = 'bin'
+supp_flag = FALSE # are you using main measures, or supplemental measures
+
+
+all_data = read.csv(paste('/Volumes/bassett-data/Jeni/RAM/group_analysis/win_', as.character(win), '/net_dem_data', detector, '.csv', sep=''))
+all_data <- mutate(all_data, band_measure = tolower(paste(Frequency.Band, Measure, sep = '_')))
+all_data[paste('str_beta_',pred,sep='')] = as.numeric(unlist(all_data[paste('str_beta_',pred,sep='')]))
+all_data[c('age','Education','SeizureAge')] = as.numeric(unlist(all_data[c('age','Education','SeizureAge')]))
+if (supp_flag){
+  # loop through other measures and remove...probably a better way to do this
+  for (m in keep_measures){
+    all_data = dplyr::filter(all_data, band_measure != m)
+  }
+}else {
+  for (m in supp_measures){
+    all_data = dplyr::filter(all_data, band_measure != m)
+  }
+}
+fc = unique(all_data$band_measure)
+for (m in fc){
+  print(m)
+  curr = dplyr::filter(all_data, band_measure == m)
+  curr = curr[!is.na(curr[,paste('str_beta_',pred,sep='')]),]
+  x = model.matrix(~locus + hem + race + gender + age + Etiology + Lesional + SeizureAge + contacts + Institution + hand + Education, curr)[, -1]
+  groups = c(rep(1,each=7),rep(2,each=2),rep(3,each=3),rep(4,each=2),5,rep(6,each=9),rep(7,each=2),8,rep(9,each=3),rep(10,each=7),rep(11,each=4),12)
+  if (pred == 'num'){
+    y = unlist(curr$str_beta_num)
+    fit = gglasso(x=x,y=y,group=groups)
+  } else if (pred == 'bin') {
+    y = unlist(curr$str_beta_bin)
+    fit = gglasso(x=x,y=y,group=groups)
+  } else {
+    y = unlist(curr$str_beta_spr)
+    fit = gglasso(x=x,y=y,group=groups)
+  }
+  
+}
+
+
+```
 ## Parsing Variability across regions
 
 # aggregating over systems
@@ -481,7 +617,7 @@ clin_stats
 ```{r}
 
 supp_flag = FALSE # is this analysis for the supplemental meausres, or the main ones
-pred = 'num'
+pred = 'bin'
 
 sys_ps = list()
 sys_df = list()
@@ -504,7 +640,7 @@ fc = unique(sys_data$band_measure)
 for (m in fc){
   print(m)
   if (pred == 'bin'){
-    fit = lmer(data=dplyr::filter(sys_data, band_measure == m, cov == 't'), scale_bin ~ sys + (1|subj))
+    fit = lmer(data=dplyr::filter(sys_data, band_measure == m), scale_bin ~ sys + (1|subj))
   } else if (pred == 'num') {
     fit = lmer(data=dplyr::filter(sys_data, band_measure == m), scale_num ~ sys + (1|subj))
   } else {
