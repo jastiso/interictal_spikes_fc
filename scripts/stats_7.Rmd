@@ -42,7 +42,7 @@ spike_data <- mutate(spike_data, band_measure = paste(Frequency.Band, Measure, s
 
 Are distributions of effect sizes different from 0?
 ```{r}
-pred = 'bin'# bin or num or spr
+pred = 'spr'# bin or num or spr
 aec_flag = 'aec$' # which aec do you want to EXCLUDE, orth or regular. The carrot mean "starts with", $                      means 'ends with'
 coh_flag = '^coh' # 
 plv_flag = '^plv$'
@@ -70,7 +70,7 @@ stats
 ```
 # Same for skew
 ```{r}
-pred = 'spr'# bin or num or spr
+pred = 'bin'# bin or num or spr
 aec_flag = 'aec$' # which aec do you want to EXCLUDE, orth or regular. The carrot mean "starts with", $                      means 'ends with'
 coh_flag = '^coh' # 
 plv_flag = 'iplv$'
@@ -137,7 +137,7 @@ aec_stats
 
 Do distributions of effect sizes differ within seizure onset zone vs outside of it?
 ```{r}
-pred = 'spr'
+pred = 'bin'
 aec_flag = 'aec$' # which aec do you want to EXCLUDE, orth or regular. The carrot mean "starts with", $                      means 'ends with'
 coh_flag = '^coh' # 
 plv_flag = '^plv'
@@ -161,7 +161,7 @@ for (m in soz_bm){
   soz_df = c(soz_df, stat$parameter)
 }
 
-soz_stats = data.frame(p = unlist(soz_ps), t = unlist(soz_ts), df = unlist(soz_df), measure = soz_bm, sigMC = p.adjust(soz_ps, method="bonferroni") < 0.05, sig = unlist(soz_ps) < 0.05)
+soz_stats = data.frame(p = p.adjust(soz_ps, method="bonferroni"), t = unlist(soz_ts), df = unlist(soz_df), measure = soz_bm, sigMC = p.adjust(soz_ps, method="bonferroni") < 0.05, sig = unlist(soz_ps) < 0.05)
 soz_stats
 
 ```
@@ -196,7 +196,7 @@ spike_stats
 
 ```
 ```{r}
-pred = 'bin'
+pred = 'spr'
 aec_flag = 'aec$' # which aec do you want to EXCLUDE, orth or regular. The carrot mean "starts with", $                      means 'ends with'
 coh_flag = '^coh' # 
 plv_flag = '^plv'
@@ -205,7 +205,7 @@ spike_data$band_measure = tolower(spike_data$band_measure)
 curr_measures = spike_data[!grepl(aec_flag, spike_data$Measure) & !grepl(coh_flag, spike_data$Measure) & !grepl(plv_flag, spike_data$Measure), 'band_measure']
 curr_measures = curr_measures[curr_measures != 'high gamma_iplv']
 
-pred = paste('spike_beta_', pred, sep = '')
+pred = paste('str_not_spike_beta_', pred, sep = '')
 spike_bm = unique(curr_measures)
 spike_ps = list()
 spike_ts = list()
@@ -213,9 +213,7 @@ spike_df = list()
 for (m in spike_bm){
   print(m)
   curr <- dplyr::filter(spike_data, band_measure == m)
-  outside <- dplyr::filter(curr, spike == 'absent')
-  outside <- dplyr::select(outside, pred)
-  stat <- t.test( outside[,1])
+  stat <- t.test( curr[pred])
   print(stat)
   spike_ps = c(spike_ps, stat$p.value)
   spike_ts = c(spike_ts, stat$statistic)
@@ -228,8 +226,8 @@ spike_stats
 ```
 Similarity across predictors
 ```{r}
-pred1 = 'num'# bin or num or spr
-pred2 = 'spr'
+pred1 = 'bin'# bin or num or spr
+pred2 = 'num'
 aec_flag = 'aec$' # which aec do you want to EXCLUDE, orth or regular. The carrot mean "starts with", $                      means 'ends with'
 coh_flag = '^coh' # 
 plv_flag = '^plv'
@@ -256,7 +254,7 @@ stats_pred
 
 ```{r}
 plot_data = dplyr::summarize(group_by(stats_pred, meas), meanr = mean(r), semr = sqrt(var(r)/length(r)), meanp = mean(p))
-plot_data$meas = factor(plot_data$meas, levels=c(1,3,4,2,5))
+plot_data$meas = factor(plot_data$meas, levels=c(2,5,6,8,3))
 g = ggplot(plot_data, aes(x=meas, y=meanr, fill=meas)) +
   geom_bar(stat='identity') + geom_errorbar(aes(ymin=meanr-semr, ymax=meanr+semr), width=.2) +
   theme_minimal() + scale_fill_manual(values=park_palette('Acadia',5)[c(2,4,5,3,1)]) + ylim(-.1,.8)
@@ -267,7 +265,7 @@ ggsave(paste('../img/pred_sim', pred1, '_', pred2, '.pdf', sep=''))
 The rest of the stats are concerning parsing variability across indidividuals and channels
 ```{r}
 net_data <-mutate(net_data, band_measure_clean = tolower(paste(Frequency.Band, Measure, sep = '_')))
-keep_measures = c('theta_aec_ortho', 'theta_im_coh', 'alpha_aec_ortho',  'beta_aec_ortho', 'beta_im_coh', 'gamma_aec_ortho', 'gamma_im_coh', 'high gamma_aec_ortho',
+keep_measures = c('theta_aec_ortho', 'theta_im_coh', 'alpha_aec_ortho', 'alpha_im_coh', 'beta_aec_ortho', 'beta_im_coh', 'gamma_aec_ortho', 'gamma_im_coh', 'high gamma_aec_ortho',
                   'high gamma_im_coh')
 bm = unique(net_data$band_measure_clean)
 supp_measures = bm[which(!bm %in% keep_measures)]
@@ -492,9 +490,9 @@ for (m in fc){
 ```
 # fit ridge regression
 ```{r}
-pred = 'bin'
+pred = 'spr'
 supp_flag = FALSE # are you using main measures, or supplemental measures
-k=3
+k=10
 
 all_data = read.csv(paste('/Volumes/bassett-data/Jeni/RAM/group_analysis/win_', as.character(win), '/net_dem_data', detector, '.csv', sep=''))
 
@@ -527,7 +525,7 @@ for (m in fc){
                 'contacts','Institution', 'hand','avg',paste('str_beta_',pred,sep=''))]
   curr = na.omit(curr)
   x = model.matrix(~locus + hem + race + gender + age + Etiology + Lesional + SeizureAge + contacts + Institution + hand + avg, curr)[, -1]
-  groups = c(rep(1,each=7),rep(2,each=2),rep(3,each=3),rep(4,each=1),5,rep(6,each=9),rep(7,each=2),8,rep(9,each=2),rep(10,each=8),rep(11,each=2), 12)
+  groups = c(rep(1,each=7),rep(2,each=2),rep(3,each=3),rep(4,each=1),5,rep(6,each=10),rep(7,each=2),8,rep(9,each=2),rep(10,each=8),rep(11,each=3), 12)
   if (pred == 'num'){
     y = unlist(curr$str_beta_num)
   } else if (pred == 'bin') {

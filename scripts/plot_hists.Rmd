@@ -1,0 +1,115 @@
+---
+title: "plot_edge_dist"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+# clean workspace
+rm(list=ls())
+
+if (!require("pacman")) install.packages("pacman")
+pacman::p_load(ggplot2, dplyr, lm.beta, RColorBrewer, nationalparkcolors, rjson, reticulate, gridExtra, wesanderson, MASS, outliers, lmerTest, stringr, lmPerm)
+
+# set up python for later
+use_python("/Users/stiso/anaconda3/bin/python") # path to python binary
+py_config() # check it is using the specified version
+
+# directory for RAM data, request from XXX
+RAM_dir = '/Volumes/bassett-data/Jeni/RAM/'
+
+# parameters
+win = 1
+detector = ''
+
+```
+
+# Methods
+
+words
+
+## Load Data
+
+```{r}
+# get subjects from all releases
+releases <- c('1', '2', '3')
+subj <- list()
+for (r in releases){
+  curr_info <- paste(RAM_dir, 'release', r, '/protocols/r1.json', sep='')
+  df <- rjson::fromJSON(file = curr_info)
+  df <- names(df$protocols$r1$subjects) %>%
+    lapply(function(x){paste('release', r, '/r1/', x, sep ='')})
+  subj <- append(subj, df)
+}
+
+```
+
+## Fit Models
+
+```{r}
+
+save_plot = TRUE
+
+# intiialize, make constants
+# constant fields
+const_vars <- c('subj', 'hand', 'age', 'gender', 'race')
+
+# for each subject, load their data and fit some models
+for (s in subj){
+  # load strengths from matlab
+  curr_csv <- paste(RAM_dir, 'FC/', s, '/win_', as.character(win), '/fc_data', detector, '.csv', sep = '')
+  if (file.exists(curr_csv) ){
+    node_data <- read.csv(curr_csv, header = TRUE, sep = ",", stringsAsFactors = FALSE,
+                          colClasses=c(gender='character', hand='character', race='numeric', age='numeric', spike_num='numeric'))
+    if (dim(node_data)[1] > 0){
+      message(paste('Subj', s)) 
+      # add band measure, combined string, for easy indexing (keep separate for plotting)
+      node_data <- mutate(node_data, band_measure = paste(band, fc_measure, sep = '_'))
+      # add sess_exper for model, dont actually want to model them separately
+      node_data <- mutate(node_data, sess_exper = paste(sess, exper, sep = '_'))
+      # add binary spike
+      node_data$bin_spike = node_data$spike_num > 0
+      # there shouldn't be any negative numbers, but if there are skip
+      if (any(node_data$spike_num[complete.cases(node_data$spike_num)] < 0)){
+        node_data$spike_num[node_data$spike_num < 0] = NaN
+        warning("This dataset had negative spike numbers: check the spreadsheet")
+        next
+      }
+      # there shouldn't be any NaNs, but if there are skip
+      if (any(is.nan(node_data$spike_num)) | any(is.na(node_data$spike_num))){
+        warning("This dataset had NaN spike numbers: check the spreadsheet")
+        next
+      }
+      
+      # drop hg phase locking - PLV not interpretable for wide band signals
+      node_data <- filter(node_data, band_measure != "hg_plv")
+      node_data <- filter(node_data, band_measure != "hg_iplv")
+      # remove duplicate time points, if present
+      node_data <- node_data %>% distinct()
+      
+      # get network level strength separated by soz and not soz
+      net_data <- group_by(node_data, sess_exper, time, spike_num, spike_spread, bin_spike, fc_measure, band, band_measure) %>%
+        dplyr::summarise(str = mean(str, na.rm=TRUE), str_spike = mean(str_spike, na.rm=TRUE), 
+                         str_not_spike = mean(str_not_spike, na.rm=TRUE), ti = mean(ti, na.rm=TRUE),  power = mean(power))
+      
+      # add constants
+      net_data[const_vars] = node_data[const_vars][1,]
+      net_data = dplyr::filter(net_data, fc_measure != 'aec')
+      net_data = dplyr::filter(net_data, fc_measure != 'coh')
+      net_data = dplyr::filter(net_data, fc_measure != 'plv')
+
+      # plots
+      if (save_plot){
+          p <- ggplot(data=net_data[net_data$spike_num != 0,], aes(x=str,  fill=as.factor(band))) + 
+            geom_histogram(alpha=0.7) + theme_minimal() + scale_fill_manual(values=park_palette("GeneralGrant")) 
+          p = p + facet_wrap('fc_measure',scales='free')
+          ggsave(paste(RAM_dir, 'img/models/', net_data$subj, '_net_hist.png', sep=''), plot=p, device = 'png')
+      }
+    }
+  }
+}
+
+```
+
+
