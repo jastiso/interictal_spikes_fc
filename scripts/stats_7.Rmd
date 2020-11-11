@@ -21,7 +21,7 @@ RAM_dir = '/Volumes/bassett-data/Jeni/RAM/'
 
 # parameters
 win = 1
-detector = '_delphos'
+detector = ''
 
 ```
 
