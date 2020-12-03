@@ -10,7 +10,7 @@ knitr::opts_chunk$set(echo = TRUE)
 rm(list=ls())
 
 if (!require("pacman")) install.packages("pacman")
-pacman::p_load(ggplot2, dplyr, lm.beta, RColorBrewer, nationalparkcolors, rjson, reticulate, gridExtra, wesanderson, MASS, outliers, lmerTest, stringr, lmPerm, glmnet, gglasso)
+pacman::p_load(ggplot2, dplyr, lm.beta, RColorBrewer, nationalparkcolors, rjson, reticulate, gridExtra, wesanderson, MASS, outliers, lmerTest, stringr, lmPerm, glmnet, gglasso, car, EnvStats)
 
 # set up python for later
 use_python("/Users/stiso/anaconda3/bin/python") # path to python binary
@@ -56,11 +56,11 @@ for (m in bfc){
   print(m)
   curr <- filter(net_data, band_measure == m)
   y = unlist(na.omit(curr[paste('str_beta_', pred, sep='')]))
-  stat <- t.test(y)
+  stat <- oneSamplePermutationTest(y)
   print(stat)
   ps = c(ps, stat$p.value)
   ts = c(ts, stat$statistic)
-  df = c(df, stat$parameter)
+  df = c(df, stat$sample.size)
 }
 
 # corrections based on aec or aec_orth, not both
@@ -70,7 +70,7 @@ stats
 ```
 # Same for skew
 ```{r}
-pred = 'bin'# bin or num or spr
+pred = 'spr'# bin or num or spr
 aec_flag = 'aec$' # which aec do you want to EXCLUDE, orth or regular. The carrot mean "starts with", $                      means 'ends with'
 coh_flag = '^coh' # 
 plv_flag = 'iplv$'
@@ -84,11 +84,11 @@ for (m in bfc){
   print(m)
   curr <- filter(net_data, band_measure == m)
   y = unlist(na.omit(curr[paste('ti_beta_', pred, sep='')]))
-  stat <- t.test(y)
+  stat <- oneSamplePermutationTest(y)
   print(stat)
   ps = c(ps, stat$p.value)
   ts = c(ts, stat$statistic)
-  df = c(df, stat$parameter)
+  df = c(df, stat$sample.size)
 }
 
 # corrections based on aec or aec_orth, not both
@@ -137,7 +137,7 @@ aec_stats
 
 Do distributions of effect sizes differ within seizure onset zone vs outside of it?
 ```{r}
-pred = 'bin'
+pred = 'spr'
 aec_flag = 'aec$' # which aec do you want to EXCLUDE, orth or regular. The carrot mean "starts with", $                      means 'ends with'
 coh_flag = '^coh' # 
 plv_flag = '^plv'
@@ -154,11 +154,11 @@ soz_df = list()
 for (m in soz_bm){
   print(m)
   curr <- dplyr::filter(soz_data, band_measure == m)
-  stat <- t.test(curr[pred])
+  stat <- oneSamplePermutationTest(unlist(curr[pred]))
   print(stat)
   soz_ps = c(soz_ps, stat$p.value)
   soz_ts = c(soz_ts, stat$statistic)
-  soz_df = c(soz_df, stat$parameter)
+  soz_df = c(soz_df, stat$sample.size)
 }
 
 soz_stats = data.frame(p = p.adjust(soz_ps, method="bonferroni"), t = unlist(soz_ts), df = unlist(soz_df), measure = soz_bm, sigMC = p.adjust(soz_ps, method="bonferroni") < 0.05, sig = unlist(soz_ps) < 0.05)
@@ -184,11 +184,11 @@ spike_df = list()
 for (m in spike_bm){
   print(m)
   curr <- dplyr::filter(spike_data, band_measure == m)
-  stat <- t.test(curr[pred])
+  stat <- oneSamplePermutationTest(unlist(curr[pred]))
   print(stat)
   spike_ps = c(spike_ps, stat$p.value)
   spike_ts = c(spike_ts, stat$statistic)
-  spike_df = c(spike_df, stat$parameter)
+  spike_df = c(spike_df, stat$sample.size)
 }
 
 spike_stats = data.frame(p = p.adjust(spike_ps, method="bonferroni"), t = unlist(spike_ts), df = unlist(spike_df), measure = spike_bm, sigMC = p.adjust(spike_ps, method="bonferroni") < 0.05, sig = unlist(spike_ps) < 0.05)
@@ -213,21 +213,21 @@ spike_df = list()
 for (m in spike_bm){
   print(m)
   curr <- dplyr::filter(spike_data, band_measure == m)
-  stat <- t.test( curr[pred])
+  stat <- oneSamplePermutationTest(unlist(curr[pred]))
   print(stat)
   spike_ps = c(spike_ps, stat$p.value)
   spike_ts = c(spike_ts, stat$statistic)
-  spike_df = c(spike_df, stat$parameter)
+  spike_df = c(spike_df, stat$sample.size)
 }
 
-spike_stats = data.frame(p = unlist(spike_ps), t = unlist(spike_ts), df = unlist(spike_df), measure = spike_bm, sigMC = p.adjust(spike_ps, method="bonferroni") < 0.05, sig = unlist(spike_ps) < 0.05)
+spike_stats = data.frame(p = unlist(p.adjust(spike_ps, method="bonferroni")), t = unlist(spike_ts), df = unlist(spike_df), measure = spike_bm, sigMC = p.adjust(spike_ps, method="bonferroni") < 0.05, sig = unlist(spike_ps) < 0.05)
 spike_stats
 
 ```
 Similarity across predictors
 ```{r}
-pred1 = 'bin'# bin or num or spr
-pred2 = 'num'
+pred1 = 'num'# bin or num or spr
+pred2 = 'spr'
 aec_flag = 'aec$' # which aec do you want to EXCLUDE, orth or regular. The carrot mean "starts with", $                      means 'ends with'
 coh_flag = '^coh' # 
 plv_flag = '^plv'
@@ -490,7 +490,7 @@ for (m in fc){
 ```
 # fit ridge regression
 ```{r}
-pred = 'spr'
+pred = 'bin'
 supp_flag = FALSE # are you using main measures, or supplemental measures
 k=10
 
@@ -544,110 +544,67 @@ for (m in fc){
 
 
 ```
-## Parsing Variability across regions
 
-# aggregating over systems
+Test normality
+```{r fig.height=10, fig.width=10}
 
-```{r}
+pred = 'spr'# bin or num or spr
+aec_flag = 'aec$' # which aec do you want to EXCLUDE, orth or regular. The carrot mean "starts with", $                      means 'ends with'
+coh_flag = '^coh' # 
+plv_flag = '^plv$'
 
-supp_flag = FALSE # is this analysis for the supplemental meausres, or the main ones
-pred = 'bin'
+curr_measures = net_data[!grepl(aec_flag, net_data$Measure) & !grepl(coh_flag, net_data$Measure) & !grepl(plv_flag, net_data$Measure), 'band_measure']
+bfc = unique(curr_measures)
 
-sys_ps = list()
-sys_df = list()
-sys_ndf = list()
-sys_fs = list()
-sys_data = read.csv(paste(RAM_dir, 'group_analysis/win_', as.character(win), '/sys_stats', detector, '.csv', sep=''))
-sys_data <- mutate(sys_data, band_measure = tolower(paste(band, fc_measure, sep = '_')))
-if (supp_flag){
-  # loop through other measures and remove...probably a better way to do this
-  for (m in keep_measures){
-    sys_data = dplyr::filter(sys_data, band_measure != m)
-  }
-}else {
-  for (m in supp_measures){
-    sys_data = dplyr::filter(sys_data, band_measure != m)
-  }
+par(mfrow=c(4,4))
+for (m in bfc){
+  curr <- filter(net_data, band_measure == m)
+  qqPlot(unlist(curr[paste('str_beta_',pred,sep='')]),ylab=m)
 }
 
-fc = unique(sys_data$band_measure)
-for (m in fc){
-  print(m)
-  if (pred == 'bin'){
-    fit = lmer(data=dplyr::filter(sys_data, band_measure == m), scale_bin ~ sys + (1|subj))
-  } else if (pred == 'num') {
-    fit = lmer(data=dplyr::filter(sys_data, band_measure == m), scale_num ~ sys + (1|subj))
-  } else {
-    fit = lmer(data=dplyr::filter(sys_data, band_measure == m), scale_spr ~ sys + (1|subj))
-  }
-  print(anova(fit))
-  sys_ps = c(sys_ps, anova(fit)$`Pr(>F)`[1])
-  sys_fs = c(sys_fs, anova(fit)$`F value`[1])
-  sys_ndf = c(sys_ndf, anova(fit)$NumDF[1])
-  sys_df = c(sys_df, anova(fit)$DenDF[1])
-}
 
-sys_stats = data.frame(p = unlist(sys_ps), f = unlist(sys_fs), ndf = unlist(sys_ndf), df = unlist(sys_df), band_measure = fc, sigMC = p.adjust(sys_ps, method = 'bonferroni') < 0.05, sig = sys_ps < 0.05)
-sys_stats
 ```
 
-# aggregating by electrode type
-```{r}
+Skew normality
+```{r fig.height=10, fig.width=10}
 
-supp_flag = FALSE # is this analysis for the supplemental meausres, or the main ones
-pred = 'bin'
+pred = 'spr'# bin or num or spr
+aec_flag = 'aec$' # which aec do you want to EXCLUDE, orth or regular. The carrot mean "starts with", $                      means 'ends with'
+coh_flag = '^coh' # 
+plv_flag = '^plv$'
 
-wm_ps = list()
-wm_df = list()
-wm_ndf = list()
-wm_fs = list()
-wm_data = read.csv(paste(RAM_dir, 'group_analysis/win_', as.character(win), '/type_stats', detector, '.csv', sep=''))
-wm_data <- mutate(wm_data, band_measure = paste(band, fc_measure, sep = '_'))
-if (supp_flag){
-  # loop through other measures and remove...probably a better way to do this
-  for (m in keep_measures){
-    wm_data = dplyr::filter(wm_data, band_measure != m)
-  }
-}else {
-  for (m in supp_measures){
-    wm_data = dplyr::filter(wm_data, band_measure != m)
-  }
+curr_measures = net_data[!grepl(aec_flag, net_data$Measure) & !grepl(coh_flag, net_data$Measure) & !grepl(plv_flag, net_data$Measure), 'band_measure']
+bfc = unique(curr_measures)
+
+par(mfrow=c(4,4))
+for (m in bfc){
+  curr <- filter(net_data, band_measure == m)
+  qqPlot(unlist(curr[paste('ti_beta_',pred,sep='')]),ylab=m)
 }
 
-fc = unique(sys_data$band_measure)
-for (m in fc){
-  print(m)
-  if (pred == 'bin'){
-    fit = lmer(data=dplyr::filter(wm_data, band_measure == m), str_beta_bin ~ type + (1|subj))
-  } else {
-    fit = lmer(data=dplyr::filter(wm_data, band_measure == m), str_beta_num ~ type + (1|subj))
-  }
-  print(anova(fit))
-  wm_ps = c(wm_ps, anova(fit)$`Pr(>F)`[1])
-  wm_fs = c(wm_fs, anova(fit)$`F value`[1])
-  wm_ndf = c(wm_ndf, anova(fit)$NumDF[1])
-  wm_df = c(wm_df, anova(fit)$DenDF[1])
+
+```
+
+
+
+SOZ normality
+```{r fig.height=10, fig.width=10}
+
+pred = 'spr'# bin or num or spr
+aec_flag = 'aec$' # which aec do you want to EXCLUDE, orth or regular. The carrot mean "starts with", $                      means 'ends with'
+coh_flag = '^coh' # 
+plv_flag = '^plv$'
+
+curr_measures = soz_data[!grepl(aec_flag, soz_data$Measure) & !grepl(coh_flag, soz_data$Measure) & !grepl(plv_flag, soz_data$Measure), 'band_measure']
+bfc = unique(curr_measures)
+
+par(mfrow=c(4,4))
+for (m in bfc){
+  curr <- filter(soz_data, band_measure == m)
+  qqPlot(unlist(curr[paste('soz_diff_',pred,sep='')]),ylab=m)
 }
 
-wm_stats = data.frame(p = unlist(wm_ps), f = unlist(wm_fs), ndf = unlist(wm_ndf), df = unlist(wm_df), band_measure = fc, sigMC = p.adjust(wm_ps, method = 'bonferroni') < 0.05, sig = wm_ps < 0.05)
-wm_stats
+
 ```
 
-## EDA
-
-```{python}
-# imports
-import numpy as np
-import pandas as pd
-import seaborn as sns
-
-# directories
-RAM_dir = '/Volumes/bassett-data/Jeni/RAM/'
-
-# load data
-net_data = pd.read_csv(RAM_dir + 'group_analysis/network_stats.csv')
-node_data = pd.read_csv(RAM_dir + 'group_analysis/node_stats.csv')
-
-node_data.head()
-```
 
