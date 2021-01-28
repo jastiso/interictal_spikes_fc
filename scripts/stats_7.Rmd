@@ -273,180 +273,48 @@ node_keep_measures = c('theta_aec_ortho', 'theta_im_coh','alpha_aec_ortho',  'be
                        'hg_im_coh')
 ```
 
-
-# With demographics
-
-```{r}
-pred = 'bin'
-supp_flag = FALSE
-idx = 4 # which demographic do you want to make plots for? use the index for the 'dems' list. 1 = race, 2 = gender, etc
-
-dems = c('race', 'gender', 'hand', 'age')
-dem_ps = list()
-dem_ts = list()
-dem_df = list()
-curr = net_data
-if (supp_flag){
-  # loop through other measures and remove...probably a better way to do this
-  for (m in keep_measures){
-    curr = dplyr::filter(curr, band_measure_clean != m)
-  }
-}else {
-  for (m in supp_measures){
-    curr = dplyr::filter(curr, band_measure_clean != m)
-  }
-}
-fc = unique(curr$band_measure)
-for (m in fc){
-  print(m)
-  fit = lm(data=dplyr::filter(curr, band_measure == m), paste('str_beta_',pred,' ~ race + gender + hand + age',sep=''))
-  print(anova(fit))
-  dem_ps = c(dem_ps, anova(fit)$`Pr(>F)`[idx])
-  dem_ts = c(dem_ts, anova(fit)$`F value`[idx])
-  dem_df = c(dem_df, anova(fit)$Df[idx])
-}
-dem_stats = data.frame(dem = dems[idx], p = unlist(dem_ps), f = unlist(dem_ts), df = unlist(dem_df), band_measure = fc, sigMC = p.adjust(dem_ps, method = 'bonferroni') < 0.05, sig = dem_ps < 0.05)
-dem_stats
-```
-
-# variability in SOZ/spike location
+# does coverage type matter
 ```{r}
 pred = 'bin'
 supp_flag = FALSE # are you using main measures, or supplemental measures
-flag = 'spike'
 
-loc_ps = list()
-loc_df = list()
-loc_ts = list()
-soz_loc_data = read.csv(paste('/Volumes/bassett-data/Jeni/RAM/group_analysis/win_', as.character(win), '/sys_',flag, detector, '.csv', sep=''))
-soz_loc_data <- mutate(soz_loc_data, band_measure = tolower(paste(Frequency.Band, Measure, sep = '_')))
-if (supp_flag){
-  # loop through other measures and remove...probably a better way to do this
-  for (m in keep_measures){
-    soz_loc_data = dplyr::filter(soz_loc_data, band_measure != m)
-  }
-}else {
-  for (m in supp_measures){
-    soz_loc_data = dplyr::filter(soz_loc_data, band_measure != m)
-  }
-}
-fc = unique(soz_loc_data$band_measure)
-for (m in fc){
-  print(m)
-  curr = dplyr::filter(soz_loc_data,  band_measure == m)
-  if (pred == 'num'){
-    fit = aovp(data=curr, str_beta_num ~ locus + race + gender + hand + age + Etiology + Lesional + Education + SeizureAge + contacts)
-  } else if (pred == 'bin') {
-    fit = aovp(data=curr, str_beta_bin ~ locus + race + gender + hand + age + Etiology + Lesional + Education + SeizureAge + contacts)
-  } else
-    fit = aovp(data=curr, str_beta_spr ~ locus + race + gender + hand + age + Etiology + Lesional + Education + SeizureAge  + contacts)
-  print(anova(fit))
-  loc_ps = c(loc_ps, summary(fit)[[1]]$`Pr(Prob)`[1])
-  loc_ts = c(loc_ts, summary(fit)[[1]]$`R Mean Sq`[1])
-  loc_df = c(loc_df, summary(fit)[[1]]$Df[1])
-}
-
-loc_stats = data.frame(p = unlist(loc_ps), f = unlist(loc_ts), df = unlist(loc_df), band_measure = fc, sigMC = p.adjust(loc_ps, method = 'bonferroni') < 0.05, sig = loc_ps < 0.05)
-loc_stats
-
-```
-
-
-
-## Pathology
-# lesional vs nonlesional
-```{r}
-pred = 'spr'
-supp_flag = FALSE # are you using main measures, or supplemental measures
-
-les_ps = list()
-les_df = list()
-les_ts = list()
-les_data = read.csv(paste('/Volumes/bassett-data/Jeni/RAM/group_analysis/win_', as.character(win), '/clinical', detector, '.csv', sep=''))
-les_data <- mutate(les_data, band_measure = tolower(paste(Frequency.Band, Measure, sep = '_')))
+cov_ps = list()
+cov_df = list()
+cov_ts = list()
+cov_data = read.csv(paste('/Volumes/bassett-data/Jeni/RAM/group_analysis/win_', as.character(win), '/clinical', detector, '.csv', sep=''))
+cov_data <- mutate(cov_data, band_measure = tolower(paste(Frequency.Band, Measure, sep = '_')))
 
 if (supp_flag){
   # loop through other measures and remove...probably a better way to do this
   for (m in keep_measures){
-    les_data = dplyr::filter(les_data, band_measure != m)
+    cov_data = dplyr::filter(cov_data, band_measure != m)
   }
 }else {
   for (m in supp_measures){
-    les_data = dplyr::filter(les_data, band_measure != m)
+    cov_data = dplyr::filter(cov_data, band_measure != m)
   }
 }
-fc = unique(les_data$band_measure)
+fc = unique(cov_data$band_measure)
 for (m in fc){
   print(m)
-  curr = dplyr::filter(les_data, band_measure == m)
+  curr = dplyr::filter(cov_data, band_measure == m)
   if (pred == 'num'){
-    fit = aovp(data=curr, str_beta_num ~ Lesional + race + gender + age)
+    fit = aovp(data=curr, str_beta_num ~ contacts + race + gender + hand + age + Institution)
   } else if (pred == 'bin') {
-    fit = aovp(data=curr, str_beta_bin ~ Lesional + race + gender + age)
+    fit = aovp(data=curr, str_beta_bin ~ contacts + race + gender + hand + age + Institution)
   } else {
-    fit = aovp(data=curr, str_beta_spr ~ Lesional + race + gender + age)
+    fit = aovp(data=curr, str_beta_spr ~ contacts + race + gender + hand + age + Institution)
   }
   
   print(summary(fit))
   tmp <- summary(fit)
-  les_ps = c(les_ps, summary(fit)[[1]]$`Pr(Prob)`[1])
-  les_ts = c(les_ts, summary(fit)[[1]]$`R Mean Sq`[1])
-  les_df = c(les_df, summary(fit)[[1]]$Df[1])
+  cov_ps = c(cov_ps, summary(fit)[[1]]$`Pr(Prob)`[1])
+  cov_ts = c(cov_ts, summary(fit)[[1]]$`R Mean Sq`[1])
+  cov_df = c(cov_df, summary(fit)[[1]]$Df[1])
 }
 
-les_stats = data.frame(p = unlist(les_ps), f = unlist(les_ts), df = unlist(les_df), band_measure = fc, sigMC = p.adjust(les_ps, method = 'bonferroni') < 0.05, sig = les_ps < 0.05)
-les_stats
-
-```
-
-# etiology
-```{r}
-pred = 'bin'
-supp_flag = FALSE # are you using main measures, or supplemental measures
-
-clin_ps = list()
-clin_df = list()
-clin_ts = list()
-clin_data = read.csv(paste('/Volumes/bassett-data/Jeni/RAM/group_analysis/win_', as.character(win), '/clinical', detector, '.csv', sep=''))
-clin_data <- mutate(clin_data, band_measure = tolower(paste(Frequency.Band, Measure, sep = '_')))
-# drop categories that have less than X people
-value_counts = as.data.frame(table(clin_data[clin_data$band_measure == 'alpha_aec_ortho',]$Etiology))
-idx = value_counts$Freq > 10
-keep_vars = value_counts[idx,'Var1']
-clin_data = clin_data[unlist(lapply(clin_data$Etiology, function(x) any(grepl(x, keep_vars)))),]
-# remove 'unkown'
-clin_data = dplyr::filter(clin_data, Etiology != 'Unknown' & Etiology != 'Other')
-if (supp_flag){
-  # loop through other measures and remove...probably a better way to do this
-  for (m in keep_measures){
-    clin_data = dplyr::filter(clin_data, band_measure != m)
-  }
-}else {
-  for (m in supp_measures){
-    clin_data = dplyr::filter(clin_data, band_measure != m)
-  }
-}
-fc = unique(clin_data$band_measure)
-for (m in fc){
-  print(m)
-  curr = dplyr::filter(clin_data, band_measure == m)
-  if (pred == 'num'){
-    fit = aovp(data=curr, str_beta_num ~ locus + hem + race + gender + hand + age + Etiology + Lesional + Education + SeizureAge + contacts + Institution)
-  } else if (pred == 'bin') {
-    fit = aovp(data=curr, str_beta_bin ~ locus + hem + race + gender + hand + age + Etiology + Lesional + Education + SeizureAge + contacts + Institution)
-  } else {
-    fit = aovp(data=curr, str_beta_spr ~ locus + hem + race + gender + hand + age + Etiology + Lesional + Education + SeizureAge + contacts + Institution)
-  }
-  
-  print(summary(fit))
-  tmp <- summary(fit)
-  clin_ps = c(clin_ps, summary(fit)[[1]]$`Pr(Prob)`[1])
-  clin_ts = c(clin_ts, summary(fit)[[1]]$`R Mean Sq`[1])
-  clin_df = c(clin_df, summary(fit)[[1]]$Df[1])
-}
-
-clin_stats = data.frame(p = unlist(clin_ps), f = unlist(clin_ts), df = unlist(clin_df), band_measure = fc, sigMC = p.adjust(clin_ps, method = 'bonferroni') < 0.05, sig = clin_ps < 0.05)
-clin_stats
+cov_stats = data.frame(p = unlist(cov_ps), f = unlist(cov_ts), df = unlist(cov_df), band_measure = fc, sigMC = p.adjust(cov_ps, method = 'bonferroni') < 0.05, sig = cov_ps < 0.05)
+cov_stats
 
 ```
 
