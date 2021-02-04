@@ -1,5 +1,4 @@
 function [] = functional_connectivity(protocol, release, top_dir, subj, detector, spike_win, win_length)
-function [] = functional_connectivity(protocol, release, top_dir, subj, detector, spike_win, win_length)
 % main function for functional connectivity - helps with paralelizing
 
 release_dir = [top_dir, 'release', release '/'];
@@ -15,7 +14,7 @@ eval(['info = info.protocols.', protocol,';']);
 
 % useful variables
 table_names = [{'subj'}, {'exper'}, {'sess'}, {'time'}, {'power'}, {'fc_measure'}, {'band'}, {'str'}, {'ti'},...
-    {'str_soz'}, {'str_not_soz'}, {'str_spike'}, {'str_not_spike'}, {'elec'}, {'region'}, {'elec_in_soz'},...
+    {'str_soz'}, {'str_not_soz'}, {'str_spike'}, {'str_not_spike'},{'str_grid'},{'str_depth'}, {'elec'}, {'region'}, {'elec_in_soz'},...
     {'elec_has_spike'}, {'spike_num'}, {'spike_spread'}, {'age'}, {'gender'}, {'race'}, {'hand'}, {'x'}, {'y'}, {'z'}, {'type'}];
 %bands
 freqs = unique(round(logspace(log10(4),log10(150),30)));
@@ -84,7 +83,7 @@ if ~exist([top_dir, 'FC/release',release, '/', protocol, '/', subj, '/', 'win_',
                 mkdir([subj_dir, 'win_', num2str(win_length), '/']);
             end
             
-            if exist([data_dir, 'data_clean.mat'], 'file') && exist([data_dir, 'spike_info_', num2str(spike_win), '.mat'], 'file')
+            %if exist([data_dir, 'data_clean.mat'], 'file') && exist([data_dir, 'spike_info_', num2str(spike_win), '.mat'], 'file')
                 load([data_dir, 'data_clean.mat'])
                 load([data_dir, 'header.mat'])
                 load([data_dir, 'channel_info.mat'])
@@ -392,11 +391,23 @@ if ~exist([top_dir, 'FC/release',release, '/', protocol, '/', subj, '/', 'win_',
                                 cellfun(@(x) any(strcmp(x, interictal_cont)), labelcmb(:,2));
                             spike_idx_dir = cellfun(@(x) any(strcmp(x, interictal_cont)), labelcmb_dir(:,1)) |...
                                 cellfun(@(x) any(strcmp(x, interictal_cont)), labelcmb_dir(:,2));
+                      % get grid and depth labels
+                            grid = label(strcmp(elec_type, 'G'));
+                            depth = label(strcmp(elec_type, 'D'));
+                            grid_idx = cellfun(@(x) any(strcmp(x, grid)), labelcmb(:,1)) |...
+                                cellfun(@(x) any(strcmp(x, grid)), labelcmb(:,2));
+                            depth_idx = cellfun(@(x) any(strcmp(x, depth)), labelcmb(:,1)) |...
+                                cellfun(@(x) any(strcmp(x, depth)), labelcmb(:,2));
+                            grid_idx_dir = cellfun(@(x) any(strcmp(x, grid)), labelcmb_dir(:,1)) |...
+                                cellfun(@(x) any(strcmp(x, grid)), labelcmb_dir(:,2));
+                            depth_idx_dir = cellfun(@(x) any(strcmp(x, depth)), labelcmb_dir(:,1)) |...
+                                cellfun(@(x) any(strcmp(x, depth)), labelcmb_dir(:,2));
+                            depth_wm_idx = [];
                             
                             for i = 1:nMeasures
                                 curr_measure = measure_names{i};
                                 switch curr_measure
-                                    case [{'coh'}, {'im_coh'}, {'plv'}, {'aec'}, {'aec_ortho'}]
+                                    case [{'coh'}, {'im_coh'}, {'plv'}, {'iplv'}, {'aec'}, {'aec_ortho'}]
                                         % get measure of interest
                                         if strcmp(curr_measure, 'coh')
                                             curr_data = C;
@@ -404,6 +415,8 @@ if ~exist([top_dir, 'FC/release',release, '/', protocol, '/', subj, '/', 'win_',
                                             curr_data = Ci;
                                         elseif strcmp(curr_measure, 'plv')
                                             curr_data = plv;
+                                        elseif strcmp(curr_measure, 'iplv')
+                                            curr_data = abs(iplv);
                                         elseif strcmp(curr_measure, 'aec')
                                             curr_data = abs(aec);
                                         elseif strcmp(curr_measure, 'aec_ortho')
@@ -416,6 +429,8 @@ if ~exist([top_dir, 'FC/release',release, '/', protocol, '/', subj, '/', 'win_',
                                         soz_str = nan(nElec*nTrial*nBand,1);
                                         not_soz_str = nan(nElec*nTrial*nBand,1);
                                         spike_str = nan(nElec*nTrial*nBand,1);
+                                        grid_str = nan(nElec*nTrial*nBand,1);
+                                        depth_str = nan(nElec*nTrial*nBand,1);
                                         not_spike_str = nan(nElec*nTrial*nBand,1);
                                         elec_order = cell(nElec*nTrial*nBand,1);
                                         band_order = cell(nElec*nTrial*nBand,1);
@@ -453,7 +468,13 @@ if ~exist([top_dir, 'FC/release',release, '/', protocol, '/', subj, '/', 'win_',
                                                     spike_str(cnt:(cnt+nTrial-1)) = mean(curr_data(k, elec_idx & spike_idx,:),2);
                                                     not_spike_str(cnt:(cnt+nTrial-1)) = mean(curr_data(k, elec_idx & ~spike_idx,:),2);
                                                 end
-                                                
+                                                if any(grid_idx)
+                                                    grid_str(cnt:(cnt+nTrial-1)) = mean(curr_data(k, elec_idx & grid_idx,:),2);
+                                                end
+                                                if any(depth_idx)
+                                                    depth_str(cnt:(cnt+nTrial-1)) = mean(curr_data(k, elec_idx & depth_idx,:),2);
+                                                end
+
                                                 % get other elec vars
                                                 elec_order(cnt:(cnt+nTrial-1)) = repmat({curr}, nTrial, 1);
                                                 elec_in_soz(cnt:(cnt+nTrial-1)) = repmat(any(strcmp(curr, soz)), nTrial, 1);
@@ -498,6 +519,8 @@ if ~exist([top_dir, 'FC/release',release, '/', protocol, '/', subj, '/', 'win_',
                                         str = nan(nElec*nTrial,1);
                                         ti = nan(nElec*nTrial,1);
                                         soz_str = nan(nElec*nTrial,1);
+                                        grid_str = nan(nElec*nTrial,1);
+                                        depth_str = nan(nElec*nTrial,1);
                                         not_soz_str = nan(nElec*nTrial,1);
                                         spike_str = nan(nElec*nTrial,1);
                                         not_spike_str = nan(nElec*nTrial,1);
@@ -539,7 +562,13 @@ if ~exist([top_dir, 'FC/release',release, '/', protocol, '/', subj, '/', 'win_',
                                                     spike_str(cnt:(cnt+nTrial-1)) = mean(curr_data(:, elec_idx & spike_idx),2);
                                                     not_spike_str(cnt:(cnt+nTrial-1)) = mean(curr_data(:, elec_idx & ~spike_idx),2);
                                                 end
-                                                
+                                                if any(grid_idx)
+                                                    grid_str(cnt:(cnt+nTrial-1)) = mean(curr_data(:, elec_idx & grid_idx,:),2);
+                                                end
+                                                if any(depth_idx)
+                                                    depth_str(cnt:(cnt+nTrial-1)) = mean(curr_data(:, elec_idx & depth_idx,:),2);
+                                                end
+
                                                 % get other elec vars
                                                 elec_order(cnt:(cnt+nTrial-1)) = repmat({curr}, nTrial, 1);
                                                 elec_in_soz(cnt:(cnt+nTrial-1)) = repmat(any(strcmp(curr, soz)), nTrial, 1);
@@ -582,7 +611,7 @@ if ~exist([top_dir, 'FC/release',release, '/', protocol, '/', subj, '/', 'win_',
                                                 
                                                 % get strengths
                                                 str(cnt:(cnt+nTrial-1)) = mean(abs(curr_data(:, elec_idx)),2);
-                                                ti(cnt:(cnt+nTrial-1)) = skewness(abs(curr_data(:, elec_idx)),1,2); % tail index
+                                                ti(cnt:(cnt+nTrial-1)) = skewness(abs(curr_data(:, elec_idx)),1,2);
                                                 if any(soz_idx_dir)
                                                     soz_str(cnt:(cnt+nTrial-1)) = mean(abs(curr_data(:, elec_idx & soz_idx_dir)),2);
                                                     not_soz_str(cnt:(cnt+nTrial-1)) = mean(abs(curr_data(:, elec_idx & ~soz_idx_dir)),2);
@@ -590,6 +619,12 @@ if ~exist([top_dir, 'FC/release',release, '/', protocol, '/', subj, '/', 'win_',
                                                 if any(spike_idx_dir)
                                                     spike_str(cnt:(cnt+nTrial-1)) = mean(abs(curr_data(:, elec_idx & spike_idx_dir)),2);
                                                     not_spike_str(cnt:(cnt+nTrial-1)) = mean(abs(curr_data(:, elec_idx & ~spike_idx_dir)),2);
+                                                end
+                                                if any(grid_idx_dir)
+                                                    grid_str(cnt:(cnt+nTrial-1)) = mean(abs(curr_data(:, elec_idx & grid_idx_dir)),2);
+                                                end
+                                                if any(depth_idx_dir)
+                                                    depth_str(cnt:(cnt+nTrial-1)) = mean(abs(curr_data(:, elec_idx & depth_idx_dir)),2);
                                                 end
                                                 
                                                 % get other elec vars
@@ -637,7 +672,7 @@ if ~exist([top_dir, 'FC/release',release, '/', protocol, '/', subj, '/', 'win_',
                                 % add to table
                                 fc_table = [fc_table; table(subj_order, exper_order, sess_order, time,...
                                     control_pow, meas_order, band_order, str, ti, soz_str, not_soz_str, spike_str,...
-                                    not_spike_str, elec_order, region_order, elec_in_soz, elec_in_spike,...
+                                    not_spike_str, grid_str, depth_str, elec_order, region_order, elec_in_soz, elec_in_spike,...
                                     spike_nums, spike_spreads, age_order, gender_order, race_order, hand_order, x, y, z, type, 'VariableNames', table_names)];
                             end
                         end
@@ -658,4 +693,3 @@ end
 
 save([subj_dir, 'fc_errors_win', num2str(win_length), detector, '.mat'], 'errors');
 end
-
