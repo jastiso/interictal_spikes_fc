@@ -715,7 +715,7 @@ end
     if size(fc_table,1) > 0
         writetable(fc_table, [subj_dir, 'win_', num2str(win_length), '/fc_data', detector, '.csv'])
     end
-%end
+end
 
 save([subj_dir, 'fc_errors_win', num2str(win_length), detector, '.mat'], 'errors');
 end

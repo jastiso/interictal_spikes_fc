@@ -85,7 +85,7 @@ for r = 1:numel(releases)
                 mkdir([top_dir, 'processed/release',release, '/', protocol, '/', subj, '/']);
             end
             
-            % check that we need data for this subj
+            %
             if exist([top_dir, 'FC/release',release, '/', protocol, '/', subj, '/', 'win_', num2str(win_length), '/fc_data', detector, '.csv'], 'file')
                 fprintf('\n******************************************\nStarting functional connectivity for subject %s...\n', subj)
                 cnt = cnt + 1
