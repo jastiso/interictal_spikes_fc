@@ -83,7 +83,7 @@ for r = 1:numel(releases)
                     data_dir = [top_dir, 'processed/release',release, '/', protocol, '/', subj, '/', exper, '/', sess, '/'];
                     
                     
-                    if exist([data_dir, 'data_clean.mat'], 'file')
+                    if exist([data_dir, 'channel_info.mat'], 'file')
                         load([data_dir, 'channel_info.mat'])
                         eval(['curr_info = info.subjects.' subj, '.experiments.' exper, '.sessions.x', sess, ';'])
                         % get file info struct - this file has names, channel index, and positions
@@ -108,6 +108,7 @@ for r = 1:numel(releases)
                             end
                         end
                         wm = cellfun(@(x) contains(lower(x),'white matter'), wm_reg);
+                        wm(1);
                         fprintf('\n This subj has %d WM contacts', sum(wm));
                         save([data_dir, 'channel_info.mat'], 'wm',  'channel_info', 'soz', 'interictal_cont', 'labels', 'chann_idx', 'regions', 'mni_coords', 'elec_type');
                     end

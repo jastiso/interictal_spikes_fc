@@ -394,7 +394,7 @@ if ~exist([top_dir, 'FC/release',release, '/', protocol, '/', subj, '/', 'win_',
                         % get grid and depth labels
                         grid = label(strcmp(elec_type, 'G'));
                         depth = label(strcmp(elec_type, 'D'));
-                        wm = label(wm);
+                        wm_label = label(wm);
                         grid_idx = cellfun(@(x) any(strcmp(x, grid)), labelcmb(:,1)) |...
                             cellfun(@(x) any(strcmp(x, grid)), labelcmb(:,2));
                         depth_idx = cellfun(@(x) any(strcmp(x, depth)), labelcmb(:,1)) |...
@@ -405,8 +405,8 @@ if ~exist([top_dir, 'FC/release',release, '/', protocol, '/', subj, '/', 'win_',
                             cellfun(@(x) any(strcmp(x, grid)), labelcmb_dir(:,2));
                         depth_idx_dir = cellfun(@(x) any(strcmp(x, depth)), labelcmb_dir(:,1)) |...
                             cellfun(@(x) any(strcmp(x, depth)), labelcmb_dir(:,2));
-                        depth_wm_idx_dir = cellfun(@(x) any(strcmp(x, depth)), labelcmb_dir(:,1)) |...
-                            cellfun(@(x) any(strcmp(x, depth)), labelcmb_dir(:,2));
+                        depth_wm_idx_dir = cellfun(@(x) any(strcmp(x, wm_label)), labelcmb_dir(:,1)) |...
+                            cellfun(@(x) any(strcmp(x, wm_label)), labelcmb_dir(:,2));
                         
                         for i = 1:nMeasures
                             curr_measure = measure_names{i};
@@ -495,7 +495,7 @@ if ~exist([top_dir, 'FC/release',release, '/', protocol, '/', subj, '/', 'win_',
                                             y(cnt:(cnt+nTrial-1)) = mni_coords{j}(2);
                                             z(cnt:(cnt+nTrial-1)) = mni_coords{j}(3);
                                             type(cnt:(cnt+nTrial-1)) = elec_type(j);
-                                            wm_order(cnt:(cnt+nTrial-1)) = wm(j);
+                                            wm_order(cnt:(cnt+nTrial-1)) = {wm(j)};
                                             
                                             % get other spike vars
                                             spike_nums(cnt:(cnt+nTrial-1)) = spike_num;
@@ -597,7 +597,7 @@ if ~exist([top_dir, 'FC/release',release, '/', protocol, '/', subj, '/', 'win_',
                                             y(cnt:(cnt+nTrial-1)) = mni_coords{j}(2);
                                             z(cnt:(cnt+nTrial-1)) = mni_coords{j}(3);
                                             type(cnt:(cnt+nTrial-1)) = elec_type(j);
-                                            wm_order(cnt:(cnt+nTrial-1)) = wm(j);
+                                            wm_order(cnt:(cnt+nTrial-1)) = {wm(j)};
                                             
                                             % get other spike vars
                                             spike_nums(cnt:(cnt+nTrial-1)) = spike_num;
@@ -660,7 +660,7 @@ if ~exist([top_dir, 'FC/release',release, '/', protocol, '/', subj, '/', 'win_',
                                             y(cnt:(cnt+nTrial-1)) = mni_coords{j}(2);
                                             z(cnt:(cnt+nTrial-1)) = mni_coords{j}(3);
                                             type(cnt:(cnt+nTrial-1)) = elec_type(j);
-                                            wm_order(cnt:(cnt+nTrial-1)) = wm(j);
+                                            wm_order(cnt:(cnt+nTrial-1)) = {wm(j)};
                                             
                                             % get other spike vars
                                             spike_nums(cnt:(cnt+nTrial-1)) = spike_num;

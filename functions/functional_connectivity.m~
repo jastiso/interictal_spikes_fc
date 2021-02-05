@@ -392,10 +392,10 @@ end
                                 cellfun(@(x) any(strcmp(x, interictal_cont)), labelcmb(:,2));
                             spike_idx_dir = cellfun(@(x) any(strcmp(x, interictal_cont)), labelcmb_dir(:,1)) |...
                                 cellfun(@(x) any(strcmp(x, interictal_cont)), labelcmb_dir(:,2));
-                      % get grid and depth labels
+                             % get grid and depth labels
                             grid = label(strcmp(elec_type, 'G'));
                             depth = label(strcmp(elec_type, 'D'));
-                            wm = label(wm);
+                            wm_label = label(wm);
                             grid_idx = cellfun(@(x) any(strcmp(x, grid)), labelcmb(:,1)) |...
                                 cellfun(@(x) any(strcmp(x, grid)), labelcmb(:,2));
                             depth_idx = cellfun(@(x) any(strcmp(x, depth)), labelcmb(:,1)) |...
@@ -715,7 +715,7 @@ end
     if size(fc_table,1) > 0
         writetable(fc_table, [subj_dir, 'win_', num2str(win_length), '/fc_data', detector, '.csv'])
     end
-end
+%end
 
 save([subj_dir, 'fc_errors_win', num2str(win_length), detector, '.mat'], 'errors');
 end
