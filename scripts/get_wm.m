@@ -84,6 +84,7 @@ for r = 1:numel(releases)
                     
                     
                     if exist([data_dir, 'channel_info.mat'], 'file')
+                        load([data_dir, 'data_clean.mat'])
                         load([data_dir, 'channel_info.mat'])
                         eval(['curr_info = info.subjects.' subj, '.experiments.' exper, '.sessions.x', sess, ';'])
                         % get file info struct - this file has names, channel index, and positions
@@ -97,9 +98,9 @@ for r = 1:numel(releases)
                         
                         % get numbers so that you can load the correct files. Don't assume they are
                         % in the same order (they usually arent)
-                        wm_reg = cell(numel(labels),1);
-                        for i = 1:numel(labels)
-                            chann = labels{i};
+                        wm_reg = cell(numel(ft_data.label),1);
+                        for i = 1:numel(wm_reg)
+                            chann = ft_data.label{i};
                             try
                                 eval(['wm_reg{i} = channel_info.contacts.', chann, '.atlases.wb.region;'])
                                 eval(['wm_reg_unique{i} = channel_info.contacts.', chann, '.atlases.wb.region;'])
