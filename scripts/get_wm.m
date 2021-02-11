@@ -105,7 +105,12 @@ for r = 1:numel(releases)
                                 eval(['wm_reg{i} = channel_info.contacts.', chann, '.atlases.wb.region;'])
                                 eval(['wm_reg_unique{i} = channel_info.contacts.', chann, '.atlases.wb.region;'])
                             catch
-                                wm_reg{i} = '';
+                                try
+                                    eval(['wm_reg{i} = channel_info.contacts.', chann, '.atlases.whole_brain.region;'])
+                                    eval(['wm_reg_unique{i} = channel_info.contacts.', chann, '.atlases.whole_brain.region;'])
+                                catch
+                                    wm_reg{i} = '';
+                                end
                             end
                         end
                         wm = cellfun(@(x) contains(lower(x),'white matter'), wm_reg);
