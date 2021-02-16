@@ -15,8 +15,8 @@ eval(['info = info.protocols.', protocol,';']);
 
 % useful variables
 table_names = [{'subj'}, {'exper'}, {'sess'}, {'time'}, {'power'}, {'fc_measure'}, {'band'}, {'str'}, {'ti'},...
-    {'str_soz'}, {'str_not_soz'}, {'str_spike'}, {'str_not_spike'},{'str_grid'},{'str_depth'}, {'wm_depth'}, {'gm_depth'},...
-    {'elec'}, {'region'}, {'wm'}, {'elec_in_soz'},...
+    {'str_soz'}, {'str_not_soz'}, {'str_spike'}, {'str_not_spike'},{'str_grid'},{'str_depth'}, {'str_wm'}, {'str_gm'},...
+    {'elec'}, {'region'}, {'wm'}, {'elec_in_soz'}, {'elec_in_ict'},...
     {'elec_has_spike'}, {'spike_num'}, {'spike_spread'}, {'age'}, {'gender'}, {'race'}, {'hand'}, {'x'}, {'y'}, {'z'}, {'type'}];
 %bands
 freqs = unique(round(logspace(log10(4),log10(150),30)));
@@ -46,7 +46,7 @@ coh_vars = cellfun(@(x) ['coh_', x], band_names, 'UniformOutput', false);
 plv_vars = cellfun(@(x) ['plv_', x], band_names, 'UniformOutput', false);
 aec_vars = cellfun(@(x) ['aec_', x], band_names, 'UniformOutput', false);
 
-fc_table = cell2table(cell(0,32), 'VariableNames', table_names);
+fc_table = cell2table(cell(0,33), 'VariableNames', table_names);
 
 if ~exist([top_dir, 'processed/release',release, '/', protocol, '/', subj, '/'], 'dir')
     mkdir([top_dir, 'processed/release',release, '/', protocol, '/', subj, '/']);
@@ -121,7 +121,7 @@ if ~exist([top_dir, 'FC/release',release, '/', protocol, '/', subj, '/', 'win_',
                     
                     % get window start times
                     trl = [];
-                    spike_idx = [];
+                    spike_index = [];
                     spike_spread = [];
                     spike_num = [];
                     spike_chan = {};
@@ -159,7 +159,7 @@ if ~exist([top_dir, 'FC/release',release, '/', protocol, '/', subj, '/', 'win_',
                                     curr_idx = (curr_spike.pos >= st_ms) & (curr_spike.pos <= en_ms);
                                     seqs = unique(curr_spike.seq(curr_idx));
                                     % update spike idx
-                                    spike_idx(cnt) = spike_flag;
+                                    spike_index(cnt) = spike_flag;
                                     spike_num(cnt) = numel(unique(curr_spike.seq(curr_idx)));
                                     if spike_flag
                                         spread = zeros(spike_num(cnt), 1);
@@ -387,6 +387,9 @@ if ~exist([top_dir, 'FC/release',release, '/', protocol, '/', subj, '/', 'win_',
                             cellfun(@(x) any(strcmp(x, soz)), labelcmb(:,2));
                         soz_idx_dir = cellfun(@(x) any(strcmp(x, soz)), labelcmb_dir(:,1)) |...
                             cellfun(@(x) any(strcmp(x, soz)), labelcmb_dir(:,2));
+                        % this one is different because we only care about
+                        % with spike and external to spike, not between
+                        % spike and not spike
                         spike_idx = cellfun(@(x) any(strcmp(x, interictal_cont)), labelcmb(:,1)) |...
                             cellfun(@(x) any(strcmp(x, interictal_cont)), labelcmb(:,2));
                         spike_idx_dir = cellfun(@(x) any(strcmp(x, interictal_cont)), labelcmb_dir(:,1)) |...
@@ -441,6 +444,7 @@ if ~exist([top_dir, 'FC/release',release, '/', protocol, '/', subj, '/', 'win_',
                                     elec_order = cell(nElec*nTrial*nBand,1);
                                     band_order = cell(nElec*nTrial*nBand,1);
                                     elec_in_soz = nan(nElec*nTrial*nBand,1);
+                                    elec_in_ict = nan(nElec*nTrial,1);
                                     elec_in_spike = nan(nElec*nTrial*nBand,1);
                                     region_order = cell(nElec*nTrial*nBand,1);
                                     x = zeros(nElec*nTrial*nBand,1);
@@ -461,7 +465,7 @@ if ~exist([top_dir, 'FC/release',release, '/', protocol, '/', subj, '/', 'win_',
                                             curr = label{j};
                                             region = regions{j};
                                             chan_idx = find(strcmp(label,label{j}));
-                                            spike_flag = cellfun(@(x) any(chan_idx == x), spike_chan);
+                                            spike_flags = cellfun(@(x) any(chan_idx == x), spike_chan);
                                             elec_idx = cellfun(@(x) any(strcmp(x, curr)), labelcmb(:,1)) |...
                                                 cellfun(@(x) any(strcmp(x, curr)), labelcmb(:,2));
                                             % get strengths
@@ -488,8 +492,9 @@ if ~exist([top_dir, 'FC/release',release, '/', protocol, '/', subj, '/', 'win_',
                                             
                                             % get other elec vars
                                             elec_order(cnt:(cnt+nTrial-1)) = repmat({curr}, nTrial, 1);
+                                            elec_in_ict(cnt:(cnt+nTrial-1)) = repmat(any(strcmp(curr, interictal_cont)), nTrial, 1);
                                             elec_in_soz(cnt:(cnt+nTrial-1)) = repmat(any(strcmp(curr, soz)), nTrial, 1);
-                                            elec_in_spike(cnt:(cnt+nTrial-1)) = spike_flag;
+                                            elec_in_spike(cnt:(cnt+nTrial-1)) = spike_flags;
                                             region_order(cnt:(cnt+nTrial-1)) = {region};
                                             x(cnt:(cnt+nTrial-1)) = mni_coords{j}(1);
                                             y(cnt:(cnt+nTrial-1)) = mni_coords{j}(2);
@@ -540,6 +545,7 @@ if ~exist([top_dir, 'FC/release',release, '/', protocol, '/', subj, '/', 'win_',
                                     not_spike_str = nan(nElec*nTrial,1);
                                     elec_order = cell(nElec*nTrial,1);
                                     elec_in_soz = nan(nElec*nTrial,1);
+                                    elec_in_ict = nan(nElec*nTrial,1);
                                     elec_in_spike = nan(nElec*nTrial,1);
                                     region_order = cell(nElec*nTrial,1);
                                     x = zeros(nElec*nTrial,1);
@@ -554,8 +560,6 @@ if ~exist([top_dir, 'FC/release',release, '/', protocol, '/', subj, '/', 'win_',
                                     
                                     if strcmp(curr_measure, 'xcorr')
                                         curr_data = xcorr_lfp;
-                                        elec_idx = cellfun(@(x) any(strcmp(x, curr)), labelcmb(:,1)) |...
-                                            cellfun(@(x) any(strcmp(x, curr)), labelcmb(:,2));
                                         
                                         % add strengths
                                         cnt = 1;
@@ -564,8 +568,10 @@ if ~exist([top_dir, 'FC/release',release, '/', protocol, '/', subj, '/', 'win_',
                                             curr = label{j};
                                             region = regions{j};
                                             chan_idx = find(strcmp(label,label{j}));
-                                            spike_flag = cellfun(@(x) any(chan_idx == x), spike_chan);
-                                            
+                                            spike_flags = cellfun(@(x) any(chan_idx == x), spike_chan);
+                                            elec_idx = cellfun(@(x) any(strcmp(x, curr)), labelcmb(:,1)) |...
+                                            cellfun(@(x) any(strcmp(x, curr)), labelcmb(:,2));
+                                        
                                             % get strengths
                                             str(cnt:(cnt+nTrial-1)) = mean(curr_data(:, elec_idx),2);
                                             ti(cnt:(cnt+nTrial-1)) = skewness(curr_data(:, elec_idx),1,2);
@@ -591,7 +597,8 @@ if ~exist([top_dir, 'FC/release',release, '/', protocol, '/', subj, '/', 'win_',
                                             % get other elec vars
                                             elec_order(cnt:(cnt+nTrial-1)) = repmat({curr}, nTrial, 1);
                                             elec_in_soz(cnt:(cnt+nTrial-1)) = repmat(any(strcmp(curr, soz)), nTrial, 1);
-                                            elec_in_spike(cnt:(cnt+nTrial-1)) = spike_flag;
+                                            elec_in_ict(cnt:(cnt+nTrial-1)) = repmat(any(strcmp(curr, interictal_cont)), nTrial, 1);
+                                            elec_in_spike(cnt:(cnt+nTrial-1)) = spike_flags;
                                             region_order(cnt:(cnt+nTrial-1)) = {region};
                                             x(cnt:(cnt+nTrial-1)) = mni_coords{j}(1);
                                             y(cnt:(cnt+nTrial-1)) = mni_coords{j}(2);
@@ -617,8 +624,6 @@ if ~exist([top_dir, 'FC/release',release, '/', protocol, '/', subj, '/', 'win_',
                                         curr_data = ar;
                                         % get index for
                                         % directed connectivity
-                                        elec_idx = cellfun(@(x) any(strcmp(x, curr)), labelcmb_dir(:,1)) |...
-                                            cellfun(@(x) any(strcmp(x, curr)), labelcmb_dir(:,2));
                                         
                                         % add strengths
                                         cnt = 1;
@@ -627,8 +632,10 @@ if ~exist([top_dir, 'FC/release',release, '/', protocol, '/', subj, '/', 'win_',
                                             curr = label{j};
                                             region = regions{j};
                                             chan_idx = find(strcmp(label,label{j}));
-                                            spike_flag = cellfun(@(x) any(chan_idx == x), spike_chan);
-                                            
+                                            spike_flags = cellfun(@(x) any(chan_idx == x), spike_chan);
+                                            elec_idx = cellfun(@(x) any(strcmp(x, curr)), labelcmb_dir(:,1)) |...
+                                            cellfun(@(x) any(strcmp(x, curr)), labelcmb_dir(:,2));
+                                        
                                             % get strengths
                                             str(cnt:(cnt+nTrial-1)) = mean(abs(curr_data(:, elec_idx)),2);
                                             ti(cnt:(cnt+nTrial-1)) = skewness(abs(curr_data(:, elec_idx)),1,2);
@@ -654,7 +661,8 @@ if ~exist([top_dir, 'FC/release',release, '/', protocol, '/', subj, '/', 'win_',
                                             % get other elec vars
                                             elec_order(cnt:(cnt+nTrial-1)) = repmat({curr}, nTrial, 1);
                                             elec_in_soz(cnt:(cnt+nTrial-1)) = repmat(any(strcmp(curr, soz)), nTrial, 1);
-                                            elec_in_spike(cnt:(cnt+nTrial-1)) = spike_flag;
+                                            elec_in_ict(cnt:(cnt+nTrial-1)) = repmat(any(strcmp(curr, interictal_cont)), nTrial, 1);
+                                            elec_in_spike(cnt:(cnt+nTrial-1)) = spike_flags;
                                             region_order(cnt:(cnt+nTrial-1)) = {region};
                                             x(cnt:(cnt+nTrial-1)) = mni_coords{j}(1);
                                             y(cnt:(cnt+nTrial-1)) = mni_coords{j}(2);
@@ -697,7 +705,7 @@ if ~exist([top_dir, 'FC/release',release, '/', protocol, '/', subj, '/', 'win_',
                             % add to table
                             fc_table = [fc_table; table(subj_order, exper_order, sess_order, time,...
                                 control_pow, meas_order, band_order, str, ti, soz_str, not_soz_str, spike_str,...
-                                not_spike_str, grid_str, depth_str, wm_str, gm_str, elec_order, region_order, wm_order, elec_in_soz, elec_in_spike,...
+                                not_spike_str, grid_str, depth_str, wm_str, gm_str, elec_order, region_order, wm_order, elec_in_soz, elec_in_ict, elec_in_spike,...
                                 spike_nums, spike_spreads, age_order, gender_order, race_order, hand_order, x, y, z, type, 'VariableNames', table_names)];
                         end
                     end
