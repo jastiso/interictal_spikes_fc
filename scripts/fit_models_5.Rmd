@@ -123,6 +123,7 @@ save_plot = FALSE
 const_vars <- c('subj', 'hand', 'age', 'gender', 'race')
 form <- ' ~ power + bin_spike + spike_num + spike_spread'
 ys = c('str', 'str_soz', 'str_not_soz', 'str_spike', 'str_not_spike', "ti", "str_grid", "str_depth", "str_gm", "str_wm")
+node_ys = c('str', "ti") # to save space and time, only run the main ys for node data
 
 # final df
 col_names <- c("fc_measure", "band", 'band_measure', "str_beta_bin", "str_beta_num", "str_beta_spr", "ti_beta_bin",
@@ -177,11 +178,11 @@ for (s in subj){
       net_data <- group_by(node_data, sess_exper, time, spike_num, spike_spread, bin_spike, fc_measure, band, band_measure) %>%
         dplyr::summarise(str = mean(str, na.rm=TRUE), ti = mean(ti, na.rm=TRUE),  power = mean(power))
       # first for spike networks
-      tmp_spike = group_by(node_data, elec_in_ict, sess_exper, time, spike_num, band_measure) %>% 
+      tmp_spike = group_by(node_data, elec_in_ict, sess_exper, time, band_measure) %>% 
         dplyr::summarise(str_spike = mean(str_spike, na.rm=TRUE), str_not_spike = mean(str_not_spike, na.rm=TRUE))
       tmp_spike$str_spike[tmp_spike$elec_in_ict == 0] <- NA
       tmp_spike$str_not_spike[tmp_spike$elec_in_ict == 1] <- NA
-      curr_spike <- group_by(tmp_spike, sess_exper, time, band_measure) %>%
+      tmp_spike <- group_by(tmp_spike, sess_exper, time, band_measure) %>%
         dplyr::summarise(str_spike = mean(str_spike, na.rm=TRUE), str_not_spike = mean(str_not_spike, na.rm=TRUE))
       net_data = merge(net_data, tmp_spike, 
                        by = c('sess_exper', 'time', 'band_measure'))
@@ -270,27 +271,11 @@ for (s in subj){
       # fit node models
       try({
           curr_node_beta <- group_by(node_data, elec, band_measure) %>%
-              group_modify(~ get_beta(.x,ys, form)) %>%
+              group_modify(~ get_beta(.x,node_ys, form)) %>%
               dplyr::summarise(n_tp = length(time), elec_spike = mean(elec_has_spike), 
-                               elec_in_soz = elec_in_soz[1], elec_in_ict = elec_in_ict[1], str_soz_beta_bin = str_soz_beta_bin[1], 
-                               str_not_soz_beta_bin = str_not_soz_beta_bin[1], str_spike_beta_bin = 
-                                 str_spike_beta_bin[1], str_not_spike_beta_bin = 
-                                 str_not_spike_beta_bin[1], str_beta_bin = str_beta_bin[1], 
-                               str_soz_beta_num = str_soz_beta_num[1], str_not_soz_beta_num = 
-                                 str_not_soz_beta_num[1], str_spike_beta_num = str_spike_beta_num[1], 
-                               str_beta_num = str_beta_num[1],str_not_spike_beta_num = 
-                                 str_not_spike_beta_num[1], ti_beta_bin = ti_beta_bin[1], ti_beta_num = 
+                               elec_in_soz = elec_in_soz[1], elec_in_ict = elec_in_ict[1], ti_beta_bin = ti_beta_bin[1], ti_beta_num = 
                                  ti_beta_num[1], ti_beta_spr = ti_beta_spr[1], str_beta_spr = 
-                                 str_beta_spr[1], str_soz_beta_spr = str_soz_beta_spr[1], 
-                               str_not_soz_beta_spr = str_not_soz_beta_spr[1], str_spike_beta_spr = 
-                                 str_spike_beta_spr[1], str_not_spike_beta_spr = 
-                                 str_not_spike_beta_spr[1], 
-                               str_grid_beta_bin = str_grid_beta_bin[1], str_grid_beta_num = str_grid_beta_num[1], 
-                           str_grid_beta_spr = str_grid_beta_spr[1], 
-                           str_depth_beta_bin = str_depth_beta_bin[1], str_depth_beta_num = str_depth_beta_num[1], 
-                           str_depth_beta_spr = str_depth_beta_spr[1],
-                           str_wm_beta_bin = str_wm_beta_bin[1], str_wm_beta_num = str_wm_beta_num[1], str_wm_beta_spr = str_wm_beta_spr[1],
-                           str_gm_beta_bin = str_gm_beta_bin[1], str_gm_beta_num = str_gm_beta_num[1], str_gm_beta_spr = str_gm_beta_spr[1], 
+                                 str_beta_spr[1], str_beta_bin = str_beta_bin[1], str_beta_num = str_beta_num[1],
                            fc_measure = fc_measure[1], band = band[1], region = region[1], x = x[1],
                                y = y[1], z = z[1], type = type[1])
             curr_node_beta[const_vars] <- net_data[const_vars][1,]
