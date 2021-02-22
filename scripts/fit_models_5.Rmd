@@ -126,17 +126,20 @@ ys = c('str', 'str_soz', 'str_not_soz', 'str_spike', 'str_not_spike', "ti", "str
 node_ys = c('str', "ti") # to save space and time, only run the main ys for node data
 
 # final df
-col_names <- c("fc_measure", "band", 'band_measure', "str_beta_bin", "str_beta_num", "str_beta_spr", "ti_beta_bin",
-               "ti_beta_num", "ti_beta_spr", "grid_beta_bin", "grid_beta_num", "grid_beta_spr",
-               "depth_beta_bin","depth_beta_num", "depth_beta_spr", "gm_beta_bin", "gm_beta_num", "gm_beta_spr",
-               "wm_beta_bin", "wm_beta_num", "wm_beta_spr", "subj", "hand", "age", "gender", "race", 'n_tp')
+col_names <- c("fc_measure", "band", 'band_measure', "subj", "hand", "age", "gender", "race", 'n_tp',
+               'str_beta_bin', 'str_beta_num', 'str_beta_spr', 'ti_beta_bin', 'ti_beta_num', 'ti_beta_spr',
+               'str_soz_beta_bin', 'str_soz_beta_num', 'str_soz_beta_spr',
+               'str_not_soz_beta_bin', 'str_not_soz_beta_num', 'str_not_soz_beta_spr', 
+               'str_spike_beta_bin', 'str_spike_beta_num', 'str_spike_beta_spr',
+               'str_not_spike_beta_bin', 'str_not_spike_beta_num', 'str_not_spike_beta_spr',
+               'str_grid_beta_bin', 'str_brid_beta_num', 'str_grid_beta_spr', 
+               'str_depth_beta_bin', 'str_depth_beta_num', 'str_depth_beta_spr',
+               'str_gm_beta_bin', 'str_gm_beta_num' ,'str_gm_beta_spr',
+               'str_wm_beta_bin', 'str_wm_beta_num', 'str_wm_beta_spr')
 net_betas <- data.frame(matrix(ncol = length(col_names), nrow = 0))
 colnames(net_betas) = col_names
-col_names = c("subj", "fc_measure", "band", 'band_measure', "str_beta_bin", "str_beta_num", "str_beta_spr", "ti_beta_bin",
-               "ti_beta_num", "ti_beta_spr", "grid_beta_bin", "grid_beta_num", "grid_beta_spr",
-               "depth_beta_bin","depth_beta_num", "depth_beta_spr", "gm_beta_bin", "gm_beta_num", "gm_beta_spr",
-               "wm_beta_bin", "wm_beta_num", "wm_beta_spr", "elec", "region", "wm", "n_tp", "elec_in_soz", "elec_spike", 
-              "age", "gender", "race", "hand", "type" )
+col_names = c("subj", "fc_measure", "band", 'band_measure', "wm", "n_tp", "elec_in_soz", "elec_spike", 
+              "age", "gender", "race", "hand", "type", 'str_beta_bin', 'str_beta_num', 'str_beta_spr', 'ti_beta_bin', 'ti_beta_num', 'ti_beta_spr' )
 node_betas <- data.frame(matrix(ncol = length(col_names), nrow = 0))
 colnames(node_betas) = col_names
 
@@ -206,8 +209,7 @@ for (s in subj){
         tmp_type$str_depth[tmp_type$type != 'D'] <- NA
         tmp_type <- group_by(tmp_type, sess_exper, time, band_measure) %>%
           dplyr::summarise(str_grid = mean(str_grid, na.rm=TRUE), str_depth = mean(str_depth, na.rm=TRUE))
-        net_data = merge(net_data, tmp_type, 
-                         by = c('sess_exper', 'time', 'band_measure'))
+        net_data = merge(net_data, tmp_type, by = c('sess_exper', 'time', 'band_measure'))
       })
       if (!"str_grid" %in% colnames(net_data)){
         net_data$str_grid = NaN
@@ -221,8 +223,7 @@ for (s in subj){
       tmp_wm$str_wm[tmp_wm$wm == 0] <- NA
       tmp_wm <- group_by(tmp_wm, sess_exper, time, band_measure) %>%
         dplyr::summarise(str_gm = mean(str_gm, na.rm=TRUE), str_wm = mean(str_wm, na.rm=TRUE))
-      net_data = merge(net_data, tmp_wm, 
-                       by = c('sess_exper', 'time', 'spike_num','spike_spread', 'bin_spike', "fc_measure", 'band', 'band_measure'))
+      net_data = merge(net_data, tmp_wm, by = c('sess_exper', 'time', 'band_measure'))
       })
       if (!"str_wm" %in% colnames(net_data)){
         net_data$str_wm = NaN
