@@ -278,7 +278,7 @@ for (s in subj){
                                  ti_beta_num[1], ti_beta_spr = ti_beta_spr[1], str_beta_spr = 
                                  str_beta_spr[1], str_beta_bin = str_beta_bin[1], str_beta_num = str_beta_num[1],
                            fc_measure = fc_measure[1], band = band[1], region = region[1], x = x[1],
-                               y = y[1], z = z[1], type = type[1])
+                               y = y[1], z = z[1], type = type[1], wm = wm[1])
             curr_node_beta[const_vars] <- net_data[const_vars][1,]
             
           #  concetenate
