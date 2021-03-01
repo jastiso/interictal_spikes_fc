@@ -116,10 +116,6 @@ for i = 1:numel(duplicates)
             curr_rels = curr_rels((top_idx + 1):end);
             flag = 1;
             nObs = size(fc_table,1);
-            % check for Nans in regions
-                if ~iscell(fc_table.region(1))
-                   fc_table.region =  num2cell(fc_table.region);
-                end
         end
         top_idx = top_idx + 1;
     end
