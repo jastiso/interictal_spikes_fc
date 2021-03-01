@@ -275,7 +275,7 @@ node_keep_measures = c('theta_aec_ortho', 'theta_im_coh','alpha_aec_ortho',  'be
 
 # does coverage type matter
 ```{r}
-pred = 'bin'
+pred = 'spr'
 supp_flag = FALSE # are you using main measures, or supplemental measures
 
 cov_ps = list()
@@ -299,11 +299,11 @@ for (m in fc){
   print(m)
   curr = dplyr::filter(cov_data, band_measure == m)
   if (pred == 'num'){
-    fit = aovp(data=curr, str_beta_num ~ contacts + race + gender + hand + age + Institution)
+    fit = aovp(data=filter(curr, contacts != 'M'), str_beta_num ~ contacts + race + gender + hand + age + Institution)
   } else if (pred == 'bin') {
-    fit = aovp(data=curr, str_beta_bin ~ contacts + race + gender + hand + age + Institution)
+    fit = aovp(data=filter(curr, contacts != 'M'), str_beta_bin ~ contacts + race + gender + hand + age + Institution)
   } else {
-    fit = aovp(data=curr, str_beta_spr ~ contacts + race + gender + hand + age + Institution)
+    fit = aovp(data=filter(curr, contacts != 'M'), str_beta_spr ~ contacts + race + gender + hand + age + Institution)
   }
   
   print(summary(fit))
@@ -317,6 +317,95 @@ cov_stats = data.frame(p = unlist(cov_ps), f = unlist(cov_ts), df = unlist(cov_d
 cov_stats
 
 ```
+
+# does wm or gm matter
+```{r}
+pred = 'bin'
+supp_flag = FALSE # are you using main measures, or supplemental measures
+
+wm_ps = list()
+wm_df = list()
+wm_ts = list()
+wm_data = read.csv(paste('/Volumes/bassett-data/Jeni/RAM/group_analysis/win_', as.character(win), '/clinical', detector, '.csv', sep=''))
+wm_data <- mutate(wm_data, band_measure = tolower(paste(Frequency.Band, Measure, sep = '_')))
+
+if (supp_flag){
+  # loop through other measures and remove...probably a better way to do this
+  for (m in keep_measures){
+    wm_data = dplyr::filter(wm_data, band_measure != m)
+  }
+}else {
+  for (m in supp_measures){
+    wm_data = dplyr::filter(wm_data, band_measure != m)
+  }
+}
+fc = unique(wm_data$band_measure)
+for (m in fc){
+  print(m)
+  curr = dplyr::filter(wm_data, band_measure == m)
+  if (pred == 'num'){
+    fit = oneSamplePermutationTest(unlist(curr$wm_diff_num))
+  } else if (pred == 'bin') {
+    fit = oneSamplePermutationTest(unlist(curr$wm_diff_bin))
+  } else {
+    fit = oneSamplePermutationTest(unlist(curr$wm_diff_spr))
+  }
+  
+  print(summary(fit))
+  wm_ps = c(wm_ps, fit$p.value)
+  wm_ts = c(wm_ts, fit$statistic)
+  wm_df = c(wm_df, fit$sample.size)
+}
+
+wm_stats = data.frame(p = unlist(wm_ps), f = unlist(wm_ts), df = unlist(wm_df), band_measure = fc, sigMC = p.adjust(wm_ps, method = 'bonferroni') < 0.05, sig = wm_ps < 0.05)
+wm_stats
+
+```
+
+
+# within a person, does coverage type matter
+```{r}
+pred = 'bin'
+supp_flag = FALSE # are you using main measures, or supplemental measures
+
+cov_wi_ps = list()
+cov_wi_df = list()
+cov_wi_ts = list()
+cov_wi_data = read.csv(paste('/Volumes/bassett-data/Jeni/RAM/group_analysis/win_', as.character(win), '/clinical', detector, '.csv', sep=''))
+cov_wi_data <- mutate(cov_wi_data, band_measure = tolower(paste(Frequency.Band, Measure, sep = '_')))
+
+if (supp_flag){
+  # loop through other measures and remove...probably a better way to do this
+  for (m in keep_measures){
+    cov_wi_data = dplyr::filter(cov_wi_data, band_measure != m)
+  }
+}else {
+  for (m in supp_measures){
+    cov_wi_data = dplyr::filter(cov_wi_data, band_measure != m)
+  }
+}
+fc = unique(cov_wi_data$band_measure)
+for (m in fc){
+  print(m)
+  curr = dplyr::filter(cov_wi_data, band_measure == m)
+  if (pred == 'num'){
+    fit = oneSamplePermutationTest(unlist(curr$type_diff_num))
+  } else if (pred == 'bin') {
+    fit = oneSamplePermutationTest(unlist(curr$type_diff_bin))
+  } else {
+    fit = oneSamplePermutationTest(unlist(curr$type_diff_spr))
+  }
+  
+  print(summary(fit))
+  cov_wi_ps = c(cov_wi_ps, fit$p.value)
+  cov_wi_ts = c(cov_wi_ts, fit$statistic)
+  cov_wi_df = c(cov_wi_df, fit$sample.size)
+}
+cov_wi_stats = data.frame(p = unlist(cov_wi_ps), f = unlist(cov_wi_ts), df = unlist(cov_wi_df), band_measure = fc, sigMC = p.adjust(cov_wi_ps, method = 'bonferroni') < 0.05, sig = cov_wi_ps < 0.05)
+cov_wi_stats
+
+```
+
 
 
 ## Which variables explain the most variance
