@@ -97,6 +97,7 @@ demographics = [{'race'}, {'hand'}, {'gender'}, {'age'}];
 
 % loop through duplicates and combine csv files
 for i = 1:numel(duplicates)
+    clear fc_table
     subj = duplicates{i};
     
     % find all the releases with this subject

@@ -137,7 +137,7 @@ aec_stats
 
 Do distributions of effect sizes differ within seizure onset zone vs outside of it?
 ```{r}
-pred = 'bin'
+pred = 'spr'
 aec_flag = 'aec$' # which aec do you want to EXCLUDE, orth or regular. The carrot mean "starts with", $                      means 'ends with'
 coh_flag = '^coh' # 
 plv_flag = '^plv'
@@ -167,7 +167,7 @@ soz_stats
 ```
 # repeat for spikes
 ```{r}
-pred = 'bin'
+pred = 'spr'
 aec_flag = 'aec$' # which aec do you want to EXCLUDE, orth or regular. The carrot mean "starts with", $                      means 'ends with'
 coh_flag = '^coh' # 
 plv_flag = '^plv'

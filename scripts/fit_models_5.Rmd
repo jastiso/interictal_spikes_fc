@@ -144,7 +144,7 @@ node_betas <- data.frame(matrix(ncol = length(col_names), nrow = 0))
 colnames(node_betas) = col_names
 
 # for each subject, load their data and fit some models
-for (s in subj){
+for (s in subj[254:256]){
   # load strengths from matlab
   curr_csv <- paste(RAM_dir, 'FC/', s, '/win_', as.character(win), '/fc_data', detector, '.csv', sep = '')
   if (file.exists(curr_csv) ){
@@ -289,8 +289,27 @@ for (s in subj){
 }
 
 # save betas
-write.csv(net_betas, file = paste(RAM_dir, 'group_analysis/win_', as.character(win), '/network_stats', detector, '.csv', sep=''))
-write.csv(node_betas, file = paste(RAM_dir, 'group_analysis/win_', as.character(win), '/node_stats', detector, '.csv', sep=''))
+#write.csv(net_betas, file = paste(RAM_dir, 'group_analysis/win_', as.character(win), '/network_stats', detector, '.csv', sep=''))
+#write.csv(node_betas, file = paste(RAM_dir, 'group_analysis/win_', as.character(win), '/node_stats', detector, '.csv', sep=''))
 
+```
+
+
+
+```{r}
+# get number of time points fot each person
+for (s in subj){
+  # load strengths from matlab
+  curr_csv <- paste(RAM_dir, 'FC/', s, '/win_', as.character(win), '/fc_data', detector, '.csv', sep = '')
+  if (file.exists(curr_csv) ){
+    node_data <- read.csv(curr_csv, header = TRUE, sep = ",", stringsAsFactors = FALSE,
+                          colClasses=c(gender='character', hand='character', race='numeric', age='numeric', spike_num='numeric'))
+    if (dim(node_data)[1] > 0){
+      if (node_data$subj[1] == 'R1232N'){
+        message(paste('Subj', s)) 
+      }
+    }
+  }
+}
 ```
 
