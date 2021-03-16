@@ -254,43 +254,6 @@ spike_stats = data.frame(p = unlist(p.adjust(spike_ps, method="bonferroni")), t 
 spike_stats
 
 ```
-Similarity across predictors
-```{r}
-pred1 = 'num'# bin or num or spr
-pred2 = 'spr'
-aec_flag = 'aec$' # which aec do you want to EXCLUDE, orth or regular. The carrot mean "starts with", $                      means 'ends with'
-coh_flag = '^coh' # 
-plv_flag = '^plv'
-curr_measures = net_data[!grepl(aec_flag, net_data$Measure) & !grepl(coh_flag, net_data$Measure) & !grepl(plv_flag, net_data$Measure), 'band_measure']
-bfc = unique(curr_measures)
-ps = list()
-rs = list()
-ns = list()
-measures=list()
-for (m in bfc){
-  print(m)
-  curr <- filter(net_data, band_measure == m)
-  stat <- cor.test(unlist(curr[paste('str_beta_', pred1, sep='')]), unlist(curr[paste('str_beta_', pred2, sep='')]), method='spearman')
-  print(stat)
-  ps = c(ps, stat$p.value)
-  rs = c(rs, stat$estimate)
-  ns = c(ns, min(c(length(na.omit(unlist(curr[paste('str_beta_', pred1, sep='')]))), length(na.omit(unlist(curr[paste('str_beta_', pred2, sep='')]))))))
-  measures = c(measures, curr$Measure[1])
-}
-# corrections based on aec or aec_orth, not both
-stats_pred = data.frame(p = p.adjust(ps, method='bonferroni'), r = unlist(rs), n = unlist(ns), measure = bfc, meas = unlist(measures), sig = p.adjust(ps, method="bonferroni") < 0.05)
-stats_pred
-```
-
-```{r}
-plot_data = dplyr::summarize(group_by(stats_pred, meas), meanr = mean(r), semr = sqrt(var(r)/length(r)), meanp = mean(p))
-plot_data$meas = factor(plot_data$meas, levels=c(2,5,6,8,3))
-g = ggplot(plot_data, aes(x=meas, y=meanr, fill=meas)) +
-  geom_bar(stat='identity') + geom_errorbar(aes(ymin=meanr-semr, ymax=meanr+semr), width=.2) +
-  theme_minimal() + scale_fill_manual(values=park_palette('Acadia',5)[c(2,4,5,3,1)]) + ylim(-.1,.8)
-g
-ggsave(paste('../img/pred_sim', pred1, '_', pred2, '.pdf', sep=''))
-```
 
 The rest of the stats are concerning parsing variability across indidividuals and channels
 ```{r}
@@ -303,55 +266,9 @@ node_keep_measures = c('theta_aec_ortho', 'theta_im_coh','alpha_aec_ortho',  'be
                        'hg_im_coh')
 ```
 
-# does coverage type matter
-```{r}
-pred = 'spr'
-supp_flag = FALSE # are you using main measures, or supplemental measures
-
-cov_ps = list()
-cov_df = list()
-cov_ts = list()
-cov_data = read.csv(paste('/Volumes/bassett-data/Jeni/RAM/group_analysis/win_', as.character(win), '/clinical', detector, '.csv', sep=''))
-cov_data <- mutate(cov_data, band_measure = tolower(paste(Frequency.Band, Measure, sep = '_')))
-
-if (supp_flag){
-  # loop through other measures and remove...probably a better way to do this
-  for (m in keep_measures){
-    cov_data = dplyr::filter(cov_data, band_measure != m)
-  }
-}else {
-  for (m in supp_measures){
-    cov_data = dplyr::filter(cov_data, band_measure != m)
-  }
-}
-fc = unique(cov_data$band_measure)
-for (m in fc){
-  print(m)
-  curr = dplyr::filter(cov_data, band_measure == m)
-  if (pred == 'num'){
-    fit = aovp(data=filter(curr, contacts != 'M'), str_beta_num ~ contacts + race + gender + hand + age + Institution)
-  } else if (pred == 'bin') {
-    fit = aovp(data=filter(curr, contacts != 'M'), str_beta_bin ~ contacts + race + gender + hand + age + Institution)
-  } else {
-    fit = aovp(data=filter(curr, contacts != 'M'), str_beta_spr ~ contacts + race + gender + hand + age + Institution)
-  }
-  
-  print(summary(fit))
-  tmp <- summary(fit)
-  cov_ps = c(cov_ps, summary(fit)[[1]]$`Pr(Prob)`[1])
-  cov_ts = c(cov_ts, summary(fit)[[1]]$`R Mean Sq`[1])
-  cov_df = c(cov_df, summary(fit)[[1]]$Df[1])
-}
-
-cov_stats = data.frame(p = unlist(cov_ps), f = unlist(cov_ts), df = unlist(cov_df), band_measure = fc, sigMC = p.adjust(cov_ps, method = 'bonferroni') < 0.05, sig = cov_ps < 0.05)
-cov_stats
-
-```
-
 # does wm or gm matter
 ```{r}
 pred = 'bin'
-supp_flag = FALSE # are you using main measures, or supplemental measures
 
 wm_ps = list()
 wm_df = list()
@@ -359,16 +276,6 @@ wm_ts = list()
 wm_data = read.csv(paste('/Volumes/bassett-data/Jeni/RAM/group_analysis/win_', as.character(win), '/clinical', detector, '.csv', sep=''))
 wm_data <- mutate(wm_data, band_measure = tolower(paste(Frequency.Band, Measure, sep = '_')))
 
-if (supp_flag){
-  # loop through other measures and remove...probably a better way to do this
-  for (m in keep_measures){
-    wm_data = dplyr::filter(wm_data, band_measure != m)
-  }
-}else {
-  for (m in supp_measures){
-    wm_data = dplyr::filter(wm_data, band_measure != m)
-  }
-}
 fc = unique(wm_data$band_measure)
 for (m in fc){
   print(m)
@@ -436,6 +343,91 @@ cov_wi_stats
 
 ```
 
+
+
+Similarity across predictors
+```{r}
+pred1 = 'num'# bin or num or spr
+pred2 = 'bin'
+aec_flag = 'aec$' # which aec do you want to EXCLUDE, orth or regular. The carrot mean "starts with", $                      means 'ends with'
+coh_flag = '^coh' # 
+plv_flag = '^plv'
+curr_measures = net_data[!grepl(aec_flag, net_data$Measure) & !grepl(coh_flag, net_data$Measure) & !grepl(plv_flag, net_data$Measure), 'band_measure']
+bfc = unique(curr_measures)
+ps = list()
+rs = list()
+ns = list()
+measures=list()
+for (m in bfc){
+  print(m)
+  curr <- filter(net_data, band_measure == m)
+  stat <- cor.test(unlist(curr[paste('str_beta_', pred1, sep='')]), unlist(curr[paste('str_beta_', pred2, sep='')]), method='spearman')
+  print(stat)
+  ps = c(ps, stat$p.value)
+  rs = c(rs, stat$estimate)
+  ns = c(ns, min(c(length(na.omit(unlist(curr[paste('str_beta_', pred1, sep='')]))), length(na.omit(unlist(curr[paste('str_beta_', pred2, sep='')]))))))
+  measures = c(measures, curr$Measure[1])
+}
+# corrections based on aec or aec_orth, not both
+stats_pred = data.frame(p = p.adjust(ps, method='bonferroni'), r = unlist(rs), n = unlist(ns), measure = bfc, meas = unlist(measures), sig = p.adjust(ps, method="bonferroni") < 0.05)
+stats_pred_avg = group_by(stats_pred, meas, mean_r = mean(r), std_r = stdin(r))
+stats_pred_avg
+```
+
+```{r}
+plot_data = dplyr::summarize(group_by(stats_pred, meas), meanr = mean(r), semr = sqrt(var(r)/length(r)), meanp = mean(p))
+plot_data$meas = factor(plot_data$meas, levels=c(2,5,6,8,3))
+g = ggplot(plot_data, aes(x=meas, y=meanr, fill=meas)) +
+  geom_bar(stat='identity') + geom_errorbar(aes(ymin=meanr-semr, ymax=meanr+semr), width=.2) +
+  theme_minimal() + scale_fill_manual(values=park_palette('Acadia',5)[c(2,4,5,3,1)]) + ylim(-.1,.8)
+g
+ggsave(paste('../img/pred_sim', pred1, '_', pred2, '.pdf', sep=''))
+```
+
+# does coverage type matter
+```{r}
+pred = 'bin'
+supp_flag = FALSE # are you using main measures, or supplemental measures
+
+cov_ps = list()
+cov_df = list()
+cov_ts = list()
+cov_data = read.csv(paste('/Volumes/bassett-data/Jeni/RAM/group_analysis/win_', as.character(win), '/clinical', detector, '.csv', sep=''))
+cov_data <- mutate(cov_data, band_measure = tolower(paste(Frequency.Band, Measure, sep = '_')))
+
+if (supp_flag){
+  # loop through other measures and remove...probably a better way to do this
+  for (m in keep_measures){
+    cov_data = dplyr::filter(cov_data, band_measure != m)
+  }
+}else {
+  for (m in supp_measures){
+    cov_data = dplyr::filter(cov_data, band_measure != m)
+  }
+}
+fc = unique(cov_data$band_measure)
+for (m in fc){
+  print(m)
+  curr = dplyr::filter(cov_data, band_measure == m)
+  if (pred == 'num'){
+    fit = aovp(data=filter(curr, contacts != 'M'), str_beta_num ~ contacts + race + gender + hand + age + Institution)
+  } else if (pred == 'bin') {
+    fit = aovp(data=filter(curr, contacts != 'M'), str_beta_bin ~ contacts + race + gender + hand + age + Institution)
+  } else {
+    fit = aovp(data=filter(curr, contacts != 'M'), str_beta_spr ~ contacts + race + gender + hand + age + Institution)
+  }
+  
+  print(summary(fit))
+  tmp <- summary(fit)
+  cov_ps = c(cov_ps, summary(fit)[[1]]$`Pr(Prob)`[1])
+  cov_ts = c(cov_ts, summary(fit)[[1]]$`R Mean Sq`[1])
+  cov_df = c(cov_df, summary(fit)[[1]]$Df[1])
+}
+
+cov_stats = data.frame(p = unlist(cov_ps), f = unlist(cov_ts), df = unlist(cov_df), band_measure = fc, sigMC = p.adjust(cov_ps, method = 'bonferroni') < 0.05, sig = cov_ps < 0.05)
+cov_stats
+
+```
 
 
 ## Which variables explain the most variance
