@@ -3,6 +3,9 @@
 *.eps
 *.api
 *.png
+*.ai
+*.jpg
+*.svg
 
 # Ignore data
 *.csv
