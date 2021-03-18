@@ -1,6 +1,6 @@
 %% Find Temporally SPecific Artifacts
 % ~300 subjects, for a total of 1073 sessions of data.
-% This script saves cleaned task-free data for each session
+% This script finds two types of artifacts: flatlining and widespread temporal transients
 
 clear
 clc
@@ -17,8 +17,8 @@ top_dir = '/Volumes/bassett-data/Jeni/RAM/';
 eval(['cd ', top_dir])
 
 % for marking artifacts
-deriv_thr = 30000; % how big the derivative needs to be to flag it
-std_thr = 300;
+deriv_thr = 30000; % how big the derivative needs to be to flag it as sharp transient
+std_thr = 300; % how variable data needs to be to not be flatlining
 releases = ['1', '2', '3'];
 n_art = [];
 
@@ -127,6 +127,7 @@ for r = 1:numel(releases)
     end
 end
 
+% these plots should show that the thresholds we picked are good - i.e. not excluding too much data
 % plot
 figure(1); clf
 histogram(sigma, 'Normalization', 'probability'); hold on

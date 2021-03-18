@@ -1,5 +1,5 @@
 ---
-title: "Do Interictal Discharges Affect iEEG Functional Connectivity"
+title: "Quantifying changes in FC in the context of IEDs"
 output: html_document
 author: Jennifer Stiso
 ---

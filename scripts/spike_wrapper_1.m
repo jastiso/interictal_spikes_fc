@@ -1,5 +1,5 @@
 %% Find Spikes
-%
+% automatically detects IEDs, using one of two spike detectors: janca et. al (http://github.com/hoameng/cognitive-spike-2016) or delphos (https://scanr.enseignementsup-recherche.gouv.fr/publication/hal-02139507)
 
 clear
 clc
@@ -10,7 +10,7 @@ addpath(genpath('/Users/stiso/Documents/Code/interictal_spikes_fc/'))
 addpath('/Users/stiso/Documents/MATLAB/fieldtrip-20170830/')
 addpath(genpath('/Users/stiso/Documents/MATLAB/BCT/'))
 
-%%
+%% global variables
 
 % global variables and packages
 top_dir = '/Volumes/bassett-data/Jeni/RAM/';
