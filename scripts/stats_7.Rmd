@@ -12,6 +12,15 @@ rm(list=ls())
 if (!require("pacman")) install.packages("pacman")
 pacman::p_load(ggplot2, dplyr, lm.beta, RColorBrewer, nationalparkcolors, rjson, reticulate, gridExtra, wesanderson, MASS, outliers, lmerTest, stringr, lmPerm, glmnet, gglasso, car, EnvStats)
 
+if (!requireNamespace("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+BiocManager::install(version = "3.5")
+
+# install grouped ridge
+BiocManager::install("annotate")
+BiocManager::install("GRridge")
+library(GRridge)
+
 # set up python for later
 use_python("/Users/stiso/anaconda3/bin/python") # path to python binary
 py_config() # check it is using the specified version
@@ -350,7 +359,7 @@ cov_wi_stats
 If individuals have large changes to one predictor, to tend to have large changes for others?
 ```{r}
 pred1 = 'num'# bin or num or spr
-pred2 = 'bin'
+pred2 = 'spr'
 aec_flag = 'aec$' # which aec do you want to EXCLUDE, orth or regular. The carrot mean "starts with", $                      means 'ends with'
 coh_flag = '^coh' # 
 plv_flag = '^plv'
@@ -372,7 +381,7 @@ for (m in bfc){
 }
 # corrections based on aec or aec_orth, not both
 stats_pred = data.frame(p = p.adjust(ps, method='bonferroni'), r = unlist(rs), n = unlist(ns), measure = bfc, meas = unlist(measures), sig = p.adjust(ps, method="bonferroni") < 0.05)
-stats_pred_avg = group_by(stats_pred, meas, mean_r = mean(r), std_r = stdin(r))
+stats_pred_avg = group_by(stats_pred, meas) %>% dplyr::summarise(mean_r = mean(r), std_r = sd(r))
 stats_pred_avg
 ```
 
@@ -434,20 +443,23 @@ cov_stats
 Data driven approach: Which variables explain the most variance
 fit grouped lasso regression
 ```{r}
-pred = 'bin'
+pred = 'spr'
 supp_flag = FALSE # are you using main measures, or supplemental measures
-k=10
 
 all_data = read.csv(paste('/Volumes/bassett-data/Jeni/RAM/group_analysis/win_', as.character(win), '/net_dem_data', detector, '.csv', sep=''))
-
+  
+  
 # extra cleaning
 all_data <- mutate(all_data, band_measure = tolower(paste(Frequency.Band, Measure, sep = '_')))
 all_data[paste('str_beta_',pred,sep='')] = as.numeric(unlist(all_data[paste('str_beta_',pred,sep='')]))
 all_data[c('age','Education','SeizureAge')] = as.numeric(unlist(all_data[c('age','Education','SeizureAge')]))
 all_data$race = as.factor(all_data$race)
 all_data[all_data$hem == '','hem'] = NaN
+all_data[all_data$contacts == '','contacts'] = NaN
+all_data[all_data$Etiology == '','Etiology'] = NaN
 all_data[all_data$locus == '','locus'] = NaN
-
+vars = c('locus', 'hem', 'race', 'gender', 'age', 'Etiology', 'Lesional','SeizureAge',
+                'contacts','Institution', 'hand','avg')
 if (supp_flag){
   # loop through other measures and remove...probably a better way to do this
   for (m in keep_measures){
@@ -459,17 +471,21 @@ if (supp_flag){
   }
 }
 
-lambdas = list()
+all_betas = list()
+all_preds = list()
+all_band_meas = list()
 fc = unique(all_data$band_measure)
 for (m in fc){
   print(m)
   curr = dplyr::filter(all_data, band_measure == m)
   curr = curr[!is.na(curr[,paste('str_beta_',pred,sep='')]),]
-  curr = curr[,c('locus', 'hem', 'race', 'gender', 'age', 'Etiology', 'Lesional','SeizureAge',
-                'contacts','Institution', 'hand','avg',paste('str_beta_',pred,sep=''))]
+  curr = curr[,c(vars,paste('str_beta_',pred,sep=''))]
   curr = na.omit(curr)
+  curr = droplevels(curr)
+  
   x = model.matrix(~locus + hem + race + gender + age + Etiology + Lesional + SeizureAge + contacts + Institution + hand + avg, curr)[, -1]
-  groups = c(rep(1,each=7),rep(2,each=2),rep(3,each=3),rep(4,each=1),5,rep(6,each=10),rep(7,each=2),8,rep(9,each=2),rep(10,each=8),rep(11,each=3), 12)
+  groups = c(rep(1,each=6),rep(2,each=1),rep(3,each=2),rep(4,each=1),5,rep(6,each=8),rep(7,each=1),8,rep(9,each=2),
+             rep(10,each=6),rep(11,each=3), 12)
   if (pred == 'num'){
     y = unlist(curr$str_beta_num)
   } else if (pred == 'bin') {
@@ -477,6 +493,8 @@ for (m in fc){
   } else {
     y = unlist(curr$str_beta_spr)
   }
+  # LOOCV
+  k = nrow(x) - 1
   fit_cv = cv.gglasso(x=x,y=y,group=groups,nfolds = k)
   fit = gglasso(x=x,y=y,group=groups,lambda=fit_cv$lambda.min)
   coeffs = coef(fit, s=fit$lambda.min)
@@ -484,69 +502,27 @@ for (m in fc){
   coeffs = coeffs[coeffs>0]
   print(names[order(-abs(coeffs))])
   
+  betas = list()
+  for (g in vars){
+    curr_vars = grepl(g, names)
+    betas = c(betas, max(coeffs[curr_vars]))
+  }
+  
+  # save data
+  all_band_meas = c(all_band_meas, rep(m, times=length(vars)))
+  all_preds = c(all_preds, vars)
+  all_betas = c(all_betas, betas)
+  
 }
-
-
+reg_betas = data.frame(band_measure = unlist(all_band_meas), beta = unlist(all_betas), pred = unlist(all_preds))
+reg_betas
 ```
-
-I think ridge regression is better suited for this analysis.
-Placeholder until I figure out grouped ridge regression (using GRridge)
+plot the betas
 ```{r}
-pred = 'bin'
-supp_flag = FALSE # are you using main measures, or supplemental measures
-k=10
-
-all_data = read.csv(paste('/Volumes/bassett-data/Jeni/RAM/group_analysis/win_', as.character(win), '/net_dem_data', detector, '.csv', sep=''))
-
-# extra cleaning
-all_data <- mutate(all_data, band_measure = tolower(paste(Frequency.Band, Measure, sep = '_')))
-all_data[paste('str_beta_',pred,sep='')] = as.numeric(unlist(all_data[paste('str_beta_',pred,sep='')]))
-all_data[c('age','Education','SeizureAge')] = as.numeric(unlist(all_data[c('age','Education','SeizureAge')]))
-all_data$race = as.factor(all_data$race)
-all_data[all_data$hem == '','hem'] = NaN
-all_data[all_data$locus == '','locus'] = NaN
-
-if (supp_flag){
-  # loop through other measures and remove...probably a better way to do this
-  for (m in keep_measures){
-    all_data = dplyr::filter(all_data, band_measure != m)
-  }
-}else {
-  for (m in supp_measures){
-    all_data = dplyr::filter(all_data, band_measure != m)
-  }
-}
-
-lambdas = list()
-fc = unique(all_data$band_measure)
-for (m in fc){
-  print(m)
-  curr = dplyr::filter(all_data, band_measure == m)
-  curr = curr[!is.na(curr[,paste('str_beta_',pred,sep='')]),]
-  curr = curr[,c('locus', 'hem', 'race', 'gender', 'age', 'Etiology', 'Lesional','SeizureAge',
-                'contacts','Institution', 'hand','avg',paste('str_beta_',pred,sep=''))]
-  curr = na.omit(curr)
-  x = model.matrix(~locus + hem + race + gender + age + Etiology + Lesional + SeizureAge + contacts + Institution + hand + avg, curr)[, -1]
-  groups = c(rep(1,each=7),rep(2,each=2),rep(3,each=3),rep(4,each=1),5,rep(6,each=10),rep(7,each=2),8,rep(9,each=2),rep(10,each=8),rep(11,each=3), 12)
-  if (pred == 'num'){
-    y = unlist(curr$str_beta_num)
-  } else if (pred == 'bin') {
-    y = unlist(curr$str_beta_bin)
-  } else {
-    y = unlist(curr$str_beta_spr)
-  }
-  fit_cv = cv.gglasso(x=x,y=y,group=groups,nfolds = k)
-  fit = gglasso(x=x,y=y,group=groups,lambda=fit_cv$lambda.min)
-  coeffs = coef(fit, s=fit$lambda.min)
-  names = attr(coeffs,'dimnames')[[1]]
-  coeffs = coeffs[coeffs>0]
-  print(names[order(-abs(coeffs))])
-  
-}
-
-
+pd = position_dodge(0.5)
+ggplot(data=reg_betas,aes(x=band_measure, y=(beta), color=pred)) + 
+  geom_point(size=5, position=pd) + theme_minimal()
 ```
-
 
 
 
