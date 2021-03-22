@@ -443,7 +443,7 @@ cov_stats
 Data driven approach: Which variables explain the most variance
 fit grouped lasso regression
 ```{r}
-pred = 'spr'
+pred = 'bin'
 supp_flag = FALSE # are you using main measures, or supplemental measures
 
 all_data = read.csv(paste('/Volumes/bassett-data/Jeni/RAM/group_analysis/win_', as.character(win), '/net_dem_data', detector, '.csv', sep=''))
@@ -474,6 +474,7 @@ if (supp_flag){
 all_betas = list()
 all_preds = list()
 all_band_meas = list()
+all_names = list()
 fc = unique(all_data$band_measure)
 for (m in fc){
   print(m)
@@ -484,8 +485,10 @@ for (m in fc){
   curr = droplevels(curr)
   
   x = model.matrix(~locus + hem + race + gender + age + Etiology + Lesional + SeizureAge + contacts + Institution + hand + avg, curr)[, -1]
-  groups = c(rep(1,each=6),rep(2,each=1),rep(3,each=2),rep(4,each=1),5,rep(6,each=8),rep(7,each=1),8,rep(9,each=2),
-             rep(10,each=6),rep(11,each=3), 12)
+  groups = c(rep(1,each=nlevels(curr$locus)-1),rep(2,each=nlevels(curr$hem)-1),rep(3,each=nlevels(curr$race)-1),
+             rep(4,each=nlevels(curr$gender)-1),5,rep(6,each=nlevels(curr$Etiology)-1),
+             rep(7,each=nlevels(curr$Lesional)-1),8,rep(9,each=nlevels(curr$contacts)-1),
+             rep(10,each=nlevels(curr$Institution)-1),rep(11,each=nlevels(curr$hand)-1), 12)
   if (pred == 'num'){
     y = unlist(curr$str_beta_num)
   } else if (pred == 'bin') {
@@ -499,29 +502,45 @@ for (m in fc){
   fit = gglasso(x=x,y=y,group=groups,lambda=fit_cv$lambda.min)
   coeffs = coef(fit, s=fit$lambda.min)
   names = attr(coeffs,'dimnames')[[1]]
+  names = names[coeffs>0]
   coeffs = coeffs[coeffs>0]
   print(names[order(-abs(coeffs))])
   
   betas = list()
+  beta_names = list()
   for (g in vars){
     curr_vars = grepl(g, names)
-    betas = c(betas, max(coeffs[curr_vars]))
+    if (any(curr_vars)){
+      curr_names = names[curr_vars]
+      max_idx = which(abs(coeffs[curr_vars])==max(abs(coeffs[curr_vars])))
+      betas = c(betas, coeffs[max_idx])
+      beta_names = c(beta_names,curr_names[max_idx])
+    } else {
+      betas = c(betas,NaN)
+      beta_names = c(beta_names,'')
+    }
+    
   }
   
   # save data
   all_band_meas = c(all_band_meas, rep(m, times=length(vars)))
   all_preds = c(all_preds, vars)
   all_betas = c(all_betas, betas)
+  all_names = c(all_names, beta_names)
   
 }
-reg_betas = data.frame(band_measure = unlist(all_band_meas), beta = unlist(all_betas), pred = unlist(all_preds))
+reg_betas = data.frame(band_measure = unlist(all_band_meas), beta = unlist(all_betas), pred = unlist(all_preds), names = unlist(all_names))
 reg_betas
 ```
 plot the betas
 ```{r}
 pd = position_dodge(0.5)
 ggplot(data=reg_betas,aes(x=band_measure, y=(beta), color=pred)) + 
-  geom_point(size=5, position=pd) + theme_minimal()
+  geom_point(size=5, position=pd) + theme_minimal() +
+  geom_label(label = reg_betas$names, nudge_x = 0.00025, nudge_y = 0.00025, check_overlap=T) +
+  scale_color_manual(values=colorRampPalette(brewer.pal(12,'Set3'))(12)) +
+  theme(axis.text.x = element_text(angle=30))
+ggsave(paste('../img/lasso_', pred, '.pdf', sep=''))
 ```
 
 
