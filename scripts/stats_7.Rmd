@@ -397,7 +397,7 @@ ggsave(paste('../img/pred_sim', pred1, '_', pred2, '.pdf', sep=''))
 # Variablilty across individuals
 Does coverage type matter? 
 ```{r}
-pred = 'bin'
+pred = 'spr'
 supp_flag = FALSE # are you using main measures, or supplemental measures
 
 cov_ps = list()
@@ -421,11 +421,11 @@ for (m in fc){
   print(m)
   curr = dplyr::filter(cov_data, band_measure == m)
   if (pred == 'num'){
-    fit = aovp(data=filter(curr, contacts != 'M'), str_beta_num ~ contacts + race + gender + hand + age + Institution)
+    fit = aovp(data=dplyr::filter(curr, contacts != 'M'), str_beta_num ~ contacts + race + gender + hand + age + Institution)
   } else if (pred == 'bin') {
-    fit = aovp(data=filter(curr, contacts != 'M'), str_beta_bin ~ contacts + race + gender + hand + age + Institution)
+    fit = aovp(data=dplyr::filter(curr, contacts != 'M'), str_beta_bin ~ contacts + race + gender + hand + age + Institution)
   } else {
-    fit = aovp(data=filter(curr, contacts != 'M'), str_beta_spr ~ contacts + race + gender + hand + age + Institution)
+    fit = aovp(data=dplyr::filter(curr, contacts != 'M'), str_beta_spr ~ contacts + race + gender + hand + age + Institution)
   }
   
   print(summary(fit))
@@ -443,7 +443,7 @@ cov_stats
 Data driven approach: Which variables explain the most variance
 fit grouped lasso regression
 ```{r}
-pred = 'bin'
+pred = 'spr'
 supp_flag = FALSE # are you using main measures, or supplemental measures
 
 all_data = read.csv(paste('/Volumes/bassett-data/Jeni/RAM/group_analysis/win_', as.character(win), '/net_dem_data', detector, '.csv', sep=''))
@@ -537,10 +537,10 @@ plot the betas
 pd = position_dodge(0.5)
 ggplot(data=reg_betas,aes(x=band_measure, y=(beta), color=pred)) + 
   geom_point(size=5, position=pd) + theme_minimal() +
-  geom_label(label = reg_betas$names, nudge_x = 0.00025, nudge_y = 0.00025, check_overlap=T) +
+  geom_label(label = reg_betas$names, nudge_x = 0.001, nudge_y = 0.001, check_overlap=T) +
   scale_color_manual(values=colorRampPalette(brewer.pal(12,'Set3'))(12)) +
   theme(axis.text.x = element_text(angle=30))
-ggsave(paste('../img/lasso_', pred, '.pdf', sep=''))
+ggsave(paste('../img/lasso_', pred, '.eps', sep=''))
 ```
 
 

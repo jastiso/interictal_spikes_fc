@@ -18,7 +18,7 @@ eval(['cd ', top_dir])
 releases = ['1', '2', '3'];
 
 % which detector are you using? '' for Janca et al, '_delphos' for delphos
-detector = '_delphos';
+detector = '_delphos_auto';
 
 % parameters for eliminated spikes
 min_chan = 3; % minimum number of channels that need to be recruited
@@ -233,7 +233,11 @@ for r = 1:numel(releases)
                             for j = 1:nTrial
                                 curr = [];
                                 try
-                                    results = Delphos_detector(ft_data.trial{j},ft_data.label, 'SEEG', ft_data.fsample, {'Spk'}, [], [], 50,[]);
+                                    if strcmp(detector, '_delphos_auto')
+                                        results = Delphos_detector(ft_data.trial{j},ft_data.label, 'SEEG', ft_data.fsample, {'Spk'}, [], [], 50,[]);
+                                    else
+                                        results = Delphos_detector(ft_data.trial{j},ft_data.label, 'SEEG', ft_data.fsample, {'Spk'}, [], [], 'auto',[]);
+                                    end
                                     curr.pos = [results.markers(:).position];
                                     curr.dur = [results.markers(:).duration];
                                     curr.value = [results.markers(:).value];
