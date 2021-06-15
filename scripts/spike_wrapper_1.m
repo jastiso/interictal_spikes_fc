@@ -232,7 +232,7 @@ for r = 1:numel(releases)
                         else
                             for j = 1:nTrial
                                 curr = [];
-                                try
+                               % try
                                     if strcmp(detector, '_delphos_auto')
                                         results = Delphos_detector(ft_data.trial{j},ft_data.label, 'SEEG', ft_data.fsample, {'Spk'}, [], [], 50,[]);
                                     else
@@ -326,10 +326,10 @@ for r = 1:numel(releases)
                                     end
                                     marker(j).m_clean = m;
                                     marker(j).fs = spike_srate;
-                                 catch ME
-                                     errors(end+1).files = [subj, '_', exper, '_', sess];
-                                     errors(end).message = ME.message;
-                                 end
+%                                  catch ME
+%                                      errors(end+1).files = [subj, '_', exper, '_', sess];
+%                                      errors(end).message = ME.message;
+%                                  end
                                 % save
                                 if ~isempty(out_clean)
                                     save([save_dir, 'spike_info', detector, '.mat'], 'out_clean', 'marker', 'min_chan', 'win');
