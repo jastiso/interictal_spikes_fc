@@ -20,7 +20,7 @@ end
 % spec = amri_sig_fractal(sig,srate,...); optional arguments frange,
 % detrend, filter
 % make frange short to avoid knee in PSD
-spec = amri_sig_fractal(sig, srate, 'frange', [2, 30], 'detrend', 1, 'filter', filter);
+spec = amri_sig_fractal(sig, srate, 'frange', [2, 70], 'detrend', 1, 'filter', filter);
 
 
 end
