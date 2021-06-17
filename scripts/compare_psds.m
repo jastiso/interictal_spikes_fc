@@ -1,4 +1,4 @@
-%% Count oscillations
+%% Get PSDs for IED and normal windows
 
 clear
 clc
@@ -20,9 +20,12 @@ win_length = 1; % in seconds
 detector = '';
 win_length_ir = 400; % in ms
 step = 50; %in ms
-filter = 0; % with ot without lowpass alaising filter
+filter = 0; % without lowpass alaising filter
 
-perc_spike = [];
+all_psd = [];
+all_ied = [];
+all_aper = [];
+all_aperied = [];
 cnt = 1;
 
 % global variables
@@ -42,6 +45,7 @@ band_names = [{'theta'}, {'alpha'}, {'beta'}, {'gamma'}];
 nBand = size(bands,1);
 all_osc = {};
 cnt = 1;
+nFreq = 34; % number of frequencies in the IRASA
 
 % subjects not to use
 load([top_dir, 'bad_datasets.mat'])
@@ -75,6 +79,9 @@ for r = 1:numel(releases)
         for s = 1:numel(subjects)
             subj = subjects{s};
             
+            % constants
+            nBand = size(bands,1);
+            
             release_dir = [top_dir, 'release', release '/'];
             
             % get global info struct
@@ -100,7 +107,7 @@ for r = 1:numel(releases)
                 mkdir([top_dir, 'processed/release',release, '/', protocol, '/', subj, '/']);
             end
             
-            fprintf('\n******************************************\nStarting spike counts for subject %s...\n', subj)
+            fprintf('\n******************************************\nStarting psd comparison for subject %s...\n', subj)
             
             % get experiements
             eval(['experiments = fields(info.subjects.' subj, '.experiments);'])
@@ -234,21 +241,42 @@ for r = 1:numel(releases)
                         % check that we found at least one window with
                         % a spike
                         if sum(spike_num) > 0
-                            
-                            % redefine trial
-                            cfg = [];
-                            cfg.trl = round(trl);
-                            win_data = ft_redefinetrial(cfg,ft_data);
-                            nTrial = numel(win_data.trial);
-                            clear ft_data artifact_all
-                            
-                            % prewhiten
-                            cfg = [];
-                            cfg.derivative = 'yes';
-                            ft_preprocessing(cfg, win_data);
-                            
-                            
-                            get_win_osc(win_data,win_length, step, filter, data_dir)
+                            %try
+                                % redefine trial
+                                cfg = [];
+                                cfg.trl = round(trl);
+                                win_data = ft_redefinetrial(cfg,ft_data);
+                                nTrial = numel(win_data.trial);
+                                clear ft_data artifact_all
+                                
+                                % prewhiten
+                                cfg = [];
+                                cfg.derivative = 'yes';
+                                ft_preprocessing(cfg, win_data);
+                                
+                                
+                                psds = zeros(nTrial,nElec,nFreq);
+                                aper = zeros(nTrial,nElec);
+                                for i = 1:nTrial
+                                    for j = 1:nElec
+                                        spec = get_IRASA_spec(win_data.trial{i}(j,:), 1, numel(win_data.trial{i}(j,:)), win_data.fsample, win_length_ir, step, filter);
+                                        psds(i,j,:) = mean(spec.mixd,2);
+                                        x = spec.freq;
+                                        y = mean(spec.frac,2);
+                                        P = polyfit(log10(x),log10(y),1);
+                                        aper(i,j) = P(1);
+                                    end
+                                end
+                                curr_clean = squeeze(mean(mean(psds(~spike_index,:,:))));
+                                curr_ied = squeeze(mean(mean(psds(logical(spike_index),:,:))));
+                                all_psd(cnt,:) = curr_clean;
+                                all_ied(cnt,:) = curr_ied;
+                                all_aper(cnt) = mean(mean(aper(~spike_index,:)));
+                                all_aperied(cnt) = mean(mean(aper(logical(spike_index),:)));
+                                cnt = cnt + 1;
+%                             catch
+%                                 fprintf("\nError for subj %s", subj)
+%                             end
                         end
                     end
                 end
