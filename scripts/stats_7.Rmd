@@ -12,15 +12,6 @@ rm(list=ls())
 if (!require("pacman")) install.packages("pacman")
 pacman::p_load(ggplot2, dplyr, lm.beta, RColorBrewer, nationalparkcolors, rjson, reticulate, gridExtra, wesanderson, MASS, outliers, lmerTest, stringr, lmPerm, glmnet, gglasso, car, EnvStats)
 
-if (!requireNamespace("BiocManager", quietly = TRUE))
-    install.packages("BiocManager")
-BiocManager::install(version = "3.5")
-
-# install grouped ridge
-BiocManager::install("annotate")
-BiocManager::install("GRridge")
-library(GRridge)
-
 # set up python for later
 use_python("/Users/stiso/anaconda3/bin/python") # path to python binary
 py_config() # check it is using the specified version
@@ -79,42 +70,32 @@ stats = data.frame(p = p.adjust(ps, method='bonferroni'), t = unlist(ts), df = u
 stats
 
 ```
-Lets test explicitly for any differences with volume conduction
+Do changes in FC correlate with average IED rate
 
 ```{r}
-pred = 'bin'
-m = 'plv'
+pred = 'num'
+aec_flag = 'aec$' # which aec do you want to EXCLUDE, orth or regular. The carrot mean "starts with", $                      means 'ends with'
+coh_flag = '^coh' # 
+plv_flag = '^plv$'
 
-# test for main effect of orthogonalization
-if (m == 'aec'){
-  amp = filter(net_data, Measure == 'aec' | Measure == 'aec_ortho')
-} else if (m == 'coh') {
-  amp = filter(net_data, Measure == 'coh' | Measure == 'im_coh')
-} else {
-  amp = filter(net_data, Measure == 'plv' | Measure == 'iplv')
-}
+curr_measures = net_data[!grepl(aec_flag, net_data$Measure) & !grepl(coh_flag, net_data$Measure) & !grepl(plv_flag, net_data$Measure), 'band_measure']
+bfc = unique(curr_measures)
+rate_ps = list()
+rate_rs = list()
+rate_ns = list()
 
-bands = unique(amp$Frequency.Band)
-aec_ps = list()
-aec_ts = list()
-aec_df = list()
-
-for (m in bands){
+for (m in bfc){
   print(m)
-  curr <- dplyr::filter(amp, Frequency.Band == m)
-  if (pred == 'bin'){
-    stat <- lmer(data=curr, str_beta_bin ~ Measure + (1|subj))
-  } else {
-    stat <- lmer(data=curr, str_beta_num ~ Measure + (1|subj))
-  }
-  print(anova(stat))
-  aec_ps = c(aec_ps, anova(stat)$`Pr(>F)`[1])
-  aec_ts = c(aec_ts, anova(stat)$`F value`[1])
-  aec_df = c(aec_df, anova(stat)$DenDF[1])
+  curr <- dplyr::filter(net_data, band_measure == m)
+  stat <- cor.test(unlist(curr[paste('str_beta_', pred, sep='')]), unlist(curr$rate), method='spearman')
+  print(stat)
+  rate_ps = c(rate_ps, stat$p.value)
+  rate_rs = c(rate_rs, stat$estimate)
+  rate_ns = c(rate_ns, min(c(length(na.omit(unlist(curr[paste('str_beta_', pred, sep='')]))), length(na.omit(unlist(curr$rate))))))
 }
 
-aec_stats = data.frame(p = unlist(aec_ps), f = unlist(aec_ts), df = unlist(aec_df), band = bands, sigMC = p.adjust(aec_ps, method = 'bonferroni') < 0.05, sig = aec_ps < 0.05)
-aec_stats
+rate_stats = data.frame(p = unlist(rate_ps), f = unlist(rate_rs), df = unlist(rate_ns), band = bfc, sigMC = p.adjust(rate_ps, method = 'bonferroni') < 0.05, sig = rate_ps < 0.05)
+rate_stats
 ```
 
 # Are the observed changes driven by some subsets of edges?

@@ -47,6 +47,7 @@ cnt = 1;
 load([top_dir, 'bad_datasets.mat'])
 errors = struct('files', [], 'message', []);
 
+%%
 for r = 1:numel(releases)
     release = releases(r);
     
@@ -74,8 +75,130 @@ for r = 1:numel(releases)
         subjects = fields(info.subjects);
         parfor s = 1:numel(subjects)
             subj = subjects{s};
-
+            
             get_win_osc(bands, detector, win_length, win_length_ir, step, filter, top_dir, release, protocol, subj)
         end
     end
 end
+
+
+%% Make plots
+% want the average and variance of the percent of contacts with osc in
+% each window
+
+vari = [];
+mu = [];
+cnto = 1;
+for r = 1:numel(releases)
+    release = releases(r);
+    
+    release_dir = [top_dir, 'release', release '/'];
+    
+    % remove parent and hidden directories, then get protocols
+    folders = dir([release_dir '/protocols']);
+    folders = {folders([folders.isdir]).name};
+    protocols = folders(cellfun(@(x) ~contains(x, '.'), folders));
+    
+    % just for testing that qsub fuction will work
+    for p = 1:numel(protocols)
+        protocol = protocols{p};
+        
+        % get global info struct
+        fname = [release_dir 'protocols/', protocol, '.json'];
+        fid = fopen(fname);
+        raw = fread(fid);
+        str = char(raw');
+        fclose(fid);
+        info = jsondecode(str);
+        info = info.protocols.r1;
+        
+        % get subjects
+        subjects = fields(info.subjects);
+        for s = 1:numel(subjects)
+            subj = subjects{s};
+            release_dir = [top_dir, 'release', release '/'];
+            
+            % get global info struct
+            fname = [release_dir 'protocols/', protocol, '.json'];
+            fid = fopen(fname);
+            raw = fread(fid);
+            str = char(raw');
+            fclose(fid);
+            info = jsondecode(str);
+            eval(['info = info.protocols.', protocol,';']);
+            
+            % subjects not to use
+            load([top_dir, 'bad_datasets.mat'])
+            errors = struct('files', [], 'message', []);
+            
+            % make subject directory
+            subj_dir = [top_dir, 'FC/release',release, '/', protocol, '/', subj, '/'];
+            if ~exist(subj_dir, 'dir')
+                mkdir(subj_dir);
+            end
+            
+            if ~exist([top_dir, 'processed/release',release, '/', protocol, '/', subj, '/'], 'dir')
+                mkdir([top_dir, 'processed/release',release, '/', protocol, '/', subj, '/']);
+            end
+            
+            fprintf('\n******************************************Finishing oscillation counts for subject %s...\n', subj)
+            
+            % get experiements
+            eval(['experiments = fields(info.subjects.' subj, '.experiments);'])
+            for e = 1:numel(experiments)
+                exper = experiments{e};
+                
+                % get seesions
+                eval(['sessions = fields(info.subjects.' subj, '.experiments.', exper, '.sessions);'])
+                for n = 1:numel(sessions)
+                    
+                    sess = sessions{n};
+                    sess = strsplit(sess, 'x');
+                    sess = sess{end};
+                    % get the path names for this session, loaded from a json file
+                    eval(['curr_info = info.subjects.' subj, '.experiments.' exper, '.sessions.x', sess, ';'])
+                    
+                    % folders
+                    data_dir = [top_dir, 'processed/release',release, '/', protocol, '/', subj, '/', exper, '/', sess, '/'];
+                    save_dir = [top_dir, 'FC/release',release, '/', protocol, '/', subj, '/', exper, '/', sess, '/'];
+                    img_dir = [top_dir, 'img/FC/release',release, '/', protocol, '/', subj, '/', exper, '/', sess, '/'];
+                    if ~exist(img_dir, 'dir')
+                        mkdir(img_dir);
+                    end
+                    if ~exist(save_dir, 'dir')
+                        mkdir(save_dir);
+                    end
+                    if ~exist([subj_dir, 'win_', num2str(win_length), '/'], 'dir')
+                        mkdir([subj_dir, 'win_', num2str(win_length), '/']);
+                    end
+                    
+                    if exist([data_dir, 'osc.mat'], 'file')
+                        load([data_dir, 'osc.mat'])
+                        
+                        % get mean and var of the percent
+                        for k = 1:nBand
+                            mu(k,cnto) = mean(sum(osc(:,k,:),3)/nElec*100);
+                            vari(k,cnto) = var(sum(osc(:,k,:),3)/nElec*100);
+                        end
+                        cnto = cnto + 1;
+                    end
+                end
+            end
+        end
+    end
+end
+
+
+% plot
+colors = ["#FBE697", "#F3AE6D", "#516888", "#C9DACA"];
+figure(1); clf
+for k = 1:nBand
+    subplot(1,2,1)
+    histogram((mu(k,:)), 'FaceColor', colors(k), 'EdgeColor', 'none', 'FaceAlpha', .9); hold on
+    title('Mean Percentage of Contacts with Oscillation')
+    subplot(1,2,2)
+    histogram((vari(k,:)), 'FaceColor', colors(k), 'EdgeColor', 'none', 'FaceAlpha', .9); hold on
+    title('Variance of Percentage of Contacts with Oscillations')
+    legend(band_names)
+end
+saveas(gca, [img_dir, 'osc_hist.pdf'], 'pdf')

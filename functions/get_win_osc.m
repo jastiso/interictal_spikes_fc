@@ -193,7 +193,7 @@ for e = 1:numel(experiments)
                         end
                     end
                     fprintf("\n%d proportion of windows with osc", mean(mean(osc)))
-                    save([data_dir, 'osc.mat'])
+                    save([data_dir, 'osc.mat'], 'osc')
                 catch
                     fprintf("\nError for subj %s", subj)
                 end
