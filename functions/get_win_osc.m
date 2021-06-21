@@ -58,7 +58,7 @@ for e = 1:numel(experiments)
             mkdir([subj_dir, 'win_', num2str(win_length), '/']);
         end
         
-        if exist([data_dir, 'data_clean.mat'], 'file') && (exist([data_dir, 'spike_info', detector, '.mat'], 'file') || exist([data_dir, 'spike_info', num2str(win), '.mat'], 'file'))
+        if exist([data_dir, 'data_clean.mat'], 'file') && (exist([data_dir, 'spike_info', detector, '.mat'], 'file') || exist([data_dir, 'spike_info', num2str(win), '.mat'], 'file')) && ~(exist([data_dir, 'osc.mat'], 'file'))
             load([data_dir, 'data_clean.mat'])
             load([data_dir, 'header.mat'])
             load([data_dir, 'channel_info.mat'])
@@ -155,47 +155,47 @@ for e = 1:numel(experiments)
                         idx = en + 1;
                     end
                 end
-            end
-            
-            % check for oscillations
-            % check that we found at least one window with
-            % a spike
-            if sum(spike_num) > 0
-                try
-                    % redefine trial
-                    cfg = [];
-                    cfg.trl = round(trl);
-                    win_data = ft_redefinetrial(cfg,ft_data);
-                    nTrial = numel(win_data.trial);
-                    clear ft_data artifact_all
-                    
-                    % prewhiten
-                    cfg = [];
-                    cfg.derivative = 'yes';
-                    ft_preprocessing(cfg, win_data);
-                    
-                    
-                    osc = zeros(nTrial,nBand,nElec);
-                    for i = 1:nTrial
-                        for j = 1:nElec
-                            spec = get_IRASA_spec(win_data.trial{i}(j,:), 1, numel(win_data.trial{i}(j,:)), win_data.fsample, win_length_ir, step, filter);
-                            for k = 1:nBand
-                                band_idx = spec.freq >= bands(k,1) & spec.freq <= bands(k,2);
-                                osci = mean(spec.osci,2);
-                                [~, peak_idx] = max(osci(band_idx));
-                                peak_log = spec.freq == spec.freq(peak_idx);
-                                
-                                scale_free = spec.frac(peak_log,:);
-                                psd = spec.mixd(peak_log,:);
-                                % is the peak greater than 3stds in scale free component?
-                                osc(i,k,j) = (mean(scale_free) + 3*std(scale_free)) < mean(spec.mixd(peak_log,:));
+                
+                % check for oscillations
+                % check that we found at least one window with
+                % a spike
+                if sum(spike_num) > 0
+                    try
+                        % redefine trial
+                        cfg = [];
+                        cfg.trl = round(trl);
+                        win_data = ft_redefinetrial(cfg,ft_data);
+                        nTrial = numel(win_data.trial);
+                        clear ft_data artifact_all
+                        
+                        % prewhiten
+                        cfg = [];
+                        cfg.derivative = 'yes';
+                        ft_preprocessing(cfg, win_data);
+                        
+                        
+                        osc = zeros(nTrial,nBand,nElec);
+                        for i = 1:nTrial
+                            for j = 1:nElec
+                                spec = get_IRASA_spec(win_data.trial{i}(j,:), 1, numel(win_data.trial{i}(j,:)), win_data.fsample, win_length_ir, step, filter);
+                                for k = 1:nBand
+                                    band_idx = spec.freq >= bands(k,1) & spec.freq <= bands(k,2);
+                                    osci = mean(spec.osci,2);
+                                    [~, peak_idx] = max(osci(band_idx));
+                                    peak_log = spec.freq == spec.freq(peak_idx);
+                                    
+                                    scale_free = spec.frac(peak_log,:);
+                                    psd = spec.mixd(peak_log,:);
+                                    % is the peak greater than 3stds in scale free component?
+                                    osc(i,k,j) = (mean(scale_free) + 3*std(scale_free)) < mean(spec.mixd(peak_log,:));
+                                end
                             end
                         end
+                        fprintf("\n%d proportion of windows with osc", mean(mean(osc)))
+                        save([data_dir, 'osc.mat'], 'osc')
+                    catch
+                        fprintf("\nError for subj %s", subj)
                     end
-                    fprintf("\n%d proportion of windows with osc", mean(mean(osc)))
-                    save([data_dir, 'osc.mat'], 'osc')
-                catch
-                    fprintf("\nError for subj %s", subj)
                 end
             end
         end

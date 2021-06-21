@@ -5,7 +5,6 @@ clc
 close all
 warning ON
 
-restoredefaultpath
 addpath(genpath('/Users/stiso/Documents/Code/interictal_spikes_fc/'))
 addpath('/Users/stiso/Documents/MATLAB/fieldtrip-20170830/')
 addpath(genpath('/Users/stiso/Documents/MATLAB/IRASA/'))
@@ -140,9 +139,7 @@ for r = 1:numel(releases)
             if ~exist([top_dir, 'processed/release',release, '/', protocol, '/', subj, '/'], 'dir')
                 mkdir([top_dir, 'processed/release',release, '/', protocol, '/', subj, '/']);
             end
-            
-            fprintf('\n******************************************Finishing oscillation counts for subject %s...\n', subj)
-            
+                        
             % get experiements
             eval(['experiments = fields(info.subjects.' subj, '.experiments);'])
             for e = 1:numel(experiments)
@@ -173,7 +170,9 @@ for r = 1:numel(releases)
                     end
                     
                     if exist([data_dir, 'osc.mat'], 'file')
+                        fprintf('\n******************************************Finishing oscillation counts for subject %s...\n', subj)
                         load([data_dir, 'osc.mat'])
+                        nElec = size(osc,3);
                         
                         % get mean and var of the percent
                         for k = 1:nBand
