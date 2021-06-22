@@ -337,7 +337,7 @@ if ~exist([top_dir, 'FC/release',release, '/', protocol, '/', subj, '/', 'win_',
                             [~, Aest] = arfit(lfp.trial{i}', pmin, pmax);
                             ar(i,:) = reshape(Aest, [], 1);
                         end
-                        
+                        disp(max(max(ar)))
                         fprintf('Done!\n');
                         if save_flag
                             % save things
@@ -648,8 +648,8 @@ if ~exist([top_dir, 'FC/release',release, '/', protocol, '/', subj, '/', 'win_',
                                                 not_spike_str(cnt:(cnt+nTrial-1)) = mean(abs(curr_data(:, elec_idx & ~spike_idx_dir)),2);
                                             end
                                             if any(depth_wm_idx_dir)
-                                                wm_str(cnt:(cnt+nTrial-1)) = mean(curr_data(k, elec_idx & depth_wm_idx_dir & depth_idx_dir,:),2);
-                                                gm_str(cnt:(cnt+nTrial-1)) = mean(curr_data(k, elec_idx & ~depth_wm_idx_dir & depth_idx_dir,:),2);
+                                                wm_str(cnt:(cnt+nTrial-1)) = mean(curr_data(:, elec_idx & depth_wm_idx_dir & depth_idx_dir),2);
+                                                gm_str(cnt:(cnt+nTrial-1)) = mean(curr_data(:, elec_idx & ~depth_wm_idx_dir & depth_idx_dir),2);
                                             end
                                             if any(grid_idx_dir)
                                                 grid_str(cnt:(cnt+nTrial-1)) = mean(abs(curr_data(:, elec_idx & grid_idx_dir)),2);

@@ -18,7 +18,7 @@ eval(['cd ', top_dir])
 releases = ['1', '2', '3'];
 
 % which detector are you using? '' for Janca et al, '_delphos' for delphos
-detector = '_param1';
+detector = '_delphos_auto';
 
 % parameters for eliminated spikes
 min_chan = 3; % minimum number of channels that need to be recruited
@@ -28,12 +28,10 @@ if strcmp(detector, '')
     discharge_tol=0.005; % taken from spike function
     win = 0.05; % size of the window to look for the minimum number of channels, in seconds
     seq = 0.015; % 15ms for spikes within a sequence, taken from Erin Conrads Brain paper
-elseif contains(detector, 'param1')
-    win = 0.03; % size of the window to look for the minimum number of channels, in seconds
-    seq = 0.05; % 15ms for spikes within a sequence, taken from Erin Conrads Brain paper
-elseif contains(detector, 'param2')
-    win = 0.1; % size of the window to look for the minimum number of channels, in seconds
-    seq = 0.03; % 15ms for spikes within a sequence, taken from Erin Conrads Brain paper
+elseif contains(detector'param1')
+    win = 0.05; % size of the window to look for the minimum number of channels, in seconds
+    seq = 0.015; % 15ms for spikes within a sequence, taken from Erin Conrads Brain paper
+elseif contains('param2')
 elseif contains(detector, 'delphos')
     spike_srate = 200;
     win = 0.05; % size of the window to look for the minimum number of channels, in seconds

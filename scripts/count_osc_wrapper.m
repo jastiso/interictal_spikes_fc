@@ -189,14 +189,14 @@ end
 
 
 % plot
-colors = ["#FBE697", "#F3AE6D", "#516888", "#C9DACA"];
+colors = ["#516888", "#FBE697", "#F3AE6D", "#C9DACA"];
 figure(1); clf
 for k = 1:nBand
     subplot(1,2,1)
-    histogram((mu(k,:)), 'FaceColor', colors(k), 'EdgeColor', 'none', 'FaceAlpha', .9); hold on
+    histogram((mu(5-k,:)), 'FaceColor', colors(5-k), 'EdgeColor', 'none', 'FaceAlpha', .9); hold on
     title('Mean Percentage of Contacts with Oscillation')
     subplot(1,2,2)
-    histogram((vari(k,:)), 'FaceColor', colors(k), 'EdgeColor', 'none', 'FaceAlpha', .9); hold on
+    histogram((vari(5-k,:)), 'FaceColor', colors(5-k), 'EdgeColor', 'none', 'FaceAlpha', .9); hold on
     title('Variance of Percentage of Contacts with Oscillations')
     legend(band_names)
 end

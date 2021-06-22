@@ -421,6 +421,12 @@ p3 = p3 + facet_wrap('fc_measure',scales='free')
 p3
 ggsave(paste(RAM_dir, 'img/models/net_hist.png', sep=''), plot=p3, device = 'png')
 
+p <- ggplot(data=filter(all_str, fc_measure == 'ar', fc_measure != 'coh', fc_measure != 'plv'), 
+             aes(x=str,  fill=as.factor(band))) + 
+            geom_histogram(alpha=0.7) + theme_minimal() + scale_fill_manual(values=rgb(106/255,137/255,161/255)) + xlim(0,1)
+p
+ggsave(paste(RAM_dir, 'img/models/inset.png', sep=''), plot=p, device = 'png')
+
 ```
 
 
