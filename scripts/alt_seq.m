@@ -125,7 +125,7 @@ for r = 1:numel(releases)
                             if strcmp(detector, '_delphos')
                                 load([data_dir, 'spike_info', detector, '.mat'])
                             else
-                                load([data_dir, 'spike_info_', num2str(spike_win), '.mat'])
+                                load([data_dir, 'spike_info_', detector, '.mat'])
                             end
                             load([data_dir, 'artifact.mat'])
                             load([data_dir, 'demographics.mat'])
@@ -236,7 +236,6 @@ for r = 1:numel(releases)
                                     for j = 1:nElec
                                         % get indices and other stuff
                                         curr = label{j};
-                                        region = regions{j};
                                         chan_idx = find(strcmp(label,label{j}));
                                         spike_flags = cellfun(@(x) any(chan_idx == x), spike_chan);
                                         elec_idx = cellfun(@(x) any(strcmp(x, curr)), label);
@@ -257,18 +256,18 @@ for r = 1:numel(releases)
                                         cnt = cnt+nTrial;
                                     end
                                     
-                                
-                                % add things that are consistent
-                                subj_order = repmat({subj}, nElec*nTrial, 1);
-                                exper_order = repmat({exper}, nElec*nTrial, 1);
-                                sess_order = repmat({sess}, nElec*nTrial, 1);
-                                
-                                
-                                
-                                % add to table
-                                spike_table = [spike_table; table(subj_order, exper_order, sess_order, time,...
-                                    elec_order,elec_in_spike,spike_nums, spike_spreads, 'VariableNames', table_names)];
-                                
+                                    
+                                    % add things that are consistent
+                                    subj_order = repmat({subj}, nElec*nTrial, 1);
+                                    exper_order = repmat({exper}, nElec*nTrial, 1);
+                                    sess_order = repmat({sess}, nElec*nTrial, 1);
+                                    
+                                    
+                                    
+                                    % add to table
+                                    spike_table = [spike_table; table(subj_order, exper_order, sess_order, time,...
+                                        elec_order,elec_in_spike,spike_nums, spike_spreads, 'VariableNames', table_names)];
+                                    
                                 end
                             end
                             %                 catch ME

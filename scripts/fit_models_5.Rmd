@@ -390,6 +390,7 @@ for (s in subj){
       alt_data <- mutate(alt_data, tid = paste(sess_exper, str(time), sep = '_'))
       # add binary spike
       node_data$bin_spike = node_data$spike_num > 0
+      alt_data$bin_spike = alt_data$spike_num > 0
       # there shouldn't be any negative numbers, but if there are skip
       if (any(node_data$spike_num[complete.cases(node_data$spike_num)] < 0)){
         node_data$spike_num[node_data$spike_num < 0] = NaN
@@ -409,16 +410,20 @@ for (s in subj){
       node_data <- node_data %>% distinct()
       
       # get network level strength separated by groups
-      net_data <- group_by(node_data, tid, spike_num, spike_spr, bin_spike) %>%
+      net_data <- group_by(node_data, tid, spike_num, spike_spread, bin_spike) %>%
         dplyr::summarise(str = mean(str, na.rm=TRUE))
-      alt_net <- group_by(alt_data, tid, spike_num, spike_spr, bin_spike)
+      alt_net <- group_by(alt_data, tid, spike_num, spike_spread, bin_spike) %>%
+        dplyr::summarise(n = n())
       num_corr = cor.test(net_data$spike_num, alt_net$spike_num, method='spearman')
-      spr_corr = cor.test(net_data$spike_spr, alt_net$spike_spr, method='spearman')
+      spr_corr = cor.test(net_data$spike_spread, alt_net$spike_spread, method='spearman')
+      
       #  concetenate
-      params <- suppressWarnings(bind_rows(data.frame( subj =curr_subj[[1]][3], default_num=net_data$spike_num, 
-                                                       alt_num=alt_net$spike_num,corr_num=num_corr$estimate, 
-                                                       default_spr=net_data$spike_spr, alt_spr=alt_net$spike_spr,
-                                                       corr_spr=spr_corr$estimate, params))) # silence warnings about converting factors to strings
+      curr_subj = str_split(s, '/')
+      l = length(alt_net$tid)
+      params <- suppressWarnings(bind_rows(data.frame( subj=rep(curr_subj[[1]][3],times=l), default_num=net_data$spike_num, 
+                                                       alt_num=alt_net$spike_num,corr_num=rep(num_corr$estimate,times=l), 
+                                                       default_spr=net_data$spike_spread, alt_spr=alt_net$spike_spread,
+                                                       corr_spr=rep(spr_corr$estimate,times=l)), params))# silence warnings about converting factors to strings
     }
   }
 }

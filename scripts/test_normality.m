@@ -343,7 +343,7 @@ for r = 1:numel(releases)
                         
                         if exist([img_dir, 'qq.png'], 'file')
                            curr = rand(1,1);
-                           if curr < 0.1
+                           if curr < 0.05
                                fprintf('\n %sqq.png', img_dir)
                            end
                             
