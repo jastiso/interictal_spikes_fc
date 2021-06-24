@@ -75,7 +75,7 @@ for r = 1:numel(releases)
         parfor s = 1:numel(subjects)
             subj = subjects{s};
             
-            get_win_osc(bands, detector, win_length, win_length_ir, step, filter, top_dir, release, protocol, subj)
+            get_win_osc(bands, detector, win_length, win_length_ir, spike_win, step, filter, top_dir, release, protocol, subj)
         end
     end
 end

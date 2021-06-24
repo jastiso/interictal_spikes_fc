@@ -1,5 +1,4 @@
-%% get counts for alternate spike sequences
-
+%% Check if data is gaussian
 
 clear
 clc
@@ -20,7 +19,10 @@ releases = ['1', '2', '3'];
 
 spike_win = 0.05; %for loading spike data
 win_length = 1; % in seconds
-detector = '_param1';
+detector = '';
+nWin = 1;
+cnt = 1;
+all_wins = [];
 
 for r = 1:numel(releases)
     release = releases(r);
@@ -122,6 +124,7 @@ for r = 1:numel(releases)
                             load([data_dir, 'data_clean.mat'])
                             load([data_dir, 'header.mat'])
                             load([data_dir, 'channel_info.mat'])
+                            
                             if strcmp(detector, '_delphos')
                                 load([data_dir, 'spike_info', detector, '.mat'])
                             else
@@ -216,76 +219,138 @@ for r = 1:numel(releases)
                                     end
                                 end
                                 
-                                % check that we found at least one window with
-                                % a spike
-                                if sum(spike_num) > 0
+                                if ~isempty(trl)
+                                    % redefine trial
+                                    cfg = [];
+                                    cfg.trl = round(trl);
+                                    win_data = ft_redefinetrial(cfg,ft_data);
+                                    nTrial = numel(win_data.trial);
+                                    clear ft_data artifact_all
                                     
+                                    % prewhiten
+                                    cfg = [];
+                                    cfg.derivative = 'yes';
+                                    ft_preprocessing(cfg, win_data);
                                     
-                                    % will becoms columns in dataframe
-                                    nTrial = numel(spike_num);
-                                    elec_order = cell(nElec*nTrial,1);
-                                    elec_in_spike = nan(nElec*nTrial,1);
-                                    spike_nums = nan(nElec*nTrial,1);
-                                    spike_spreads = nan(nElec*nTrial,1);
-                                    time = nan(nElec*nTrial,1);
-                                    label = ft_data.label;
+                                    % randomly select some indices
+                                    inds = randi(nTrial, [1,nWin]);
+                                    einds =  randi(nElec, [1,10]);
+                                    curr = win_data.trial{inds}(einds,:);
                                     
-                                    
-                                    % add strengths for all bands
-                                    cnt = 1;
-                                    for j = 1:nElec
-                                        % get indices and other stuff
-                                        curr = label{j};
-                                        region = regions{j};
-                                        chan_idx = find(strcmp(label,label{j}));
-                                        spike_flags = cellfun(@(x) any(chan_idx == x), spike_chan);
-                                        elec_idx = cellfun(@(x) any(strcmp(x, curr)), label);
-                                        
-                                        
-                                        % get other elec vars
-                                        elec_order(cnt:(cnt+nTrial-1)) = repmat({curr}, nTrial, 1);
-                                        elec_in_spike(cnt:(cnt+nTrial-1)) = spike_flags;
-                                        
-                                        % get other spike vars
-                                        spike_nums(cnt:(cnt+nTrial-1)) = spike_num;
-                                        spike_spreads(cnt:(cnt+nTrial-1)) = spike_spread;
-                                        
-                                        %time vars
-                                        time(cnt:(cnt+nTrial-1)) = time_vec;
-                                        
-                                        % update counter
-                                        cnt = cnt+nTrial;
-                                    end
-                                    
+                                    figure(1); clf
+                                    qqplot(curr')
+                                    saveas(gca, [img_dir, 'qq.png'], 'png')
                                 end
-                                
-                                % add things that are consistent
-                                subj_order = repmat({subj}, nElec*nTrial, 1);
-                                exper_order = repmat({exper}, nElec*nTrial, 1);
-                                sess_order = repmat({sess}, nElec, 1);
-                                
-                                
-                                
-                                % add to table
-                                spike_table = [spike_table; table(subj_order, exper_order, sess_order, time,...
-                                    elec_order,elec_in_spike,spike_nums, spike_spreads, 'VariableNames', table_names)];
-                                
-                                
                             end
-                            %                 catch ME
-                            %                     errors(end+1).files = [subj, '_', exper, '_', sess];
-                            %                     errors(end).message = ME.message;
-                            %                 end
                         end
                     end
                 end
-                % save subject table
-                if size(spike_table,1) > 0
-                    writetable(spike_table, [subj_dir, 'win_', num2str(win_length), '/alt_spikes', detector, '.csv'])
-                end
+            end
+        end
+    end
+end
+
+%% randomly generate list for figure
+
+for r = 1:numel(releases)
+    release = releases(r);
+    
+    release_dir = [top_dir, 'release', release '/'];
+    
+    % remove parent and hidden directories, then get protocols
+    folders = dir([release_dir '/protocols']);
+    folders = {folders([folders.isdir]).name};
+    protocols = folders(cellfun(@(x) ~contains(x, '.'), folders));
+    
+    % just for testing that qsub fuction will work
+    for p = 1:numel(protocols)
+        protocol = protocols{p};
+        
+        % get global info struct
+        fname = [release_dir 'protocols/', protocol, '.json'];
+        fid = fopen(fname);
+        raw = fread(fid);
+        str = char(raw');
+        fclose(fid);
+        info = jsondecode(str);
+        info = info.protocols.r1;
+        
+        % get subjects
+        subjects = fields(info.subjects);
+        for s = 1:numel(subjects)
+            subj = subjects{s};
+            
+            % main function for functional connectivity - helps with paralelizing
+            % do you want to save all your FC mtrices? faster if no
+            save_flag = false;
+            release_dir = [top_dir, 'release', release '/'];
+            
+            % get global info struct
+            fname = [release_dir 'protocols/', protocol, '.json'];
+            fid = fopen(fname);
+            raw = fread(fid);
+            str = char(raw');
+            fclose(fid);
+            info = jsondecode(str);
+            eval(['info = info.protocols.', protocol,';']);
+            
+            % useful variables
+            table_names = [{'subj'}, {'exper'}, {'sess'}, {'time'}, ...
+                {'elec_has_spike'}, {'spike_num'}, {'spike_spread'}];
+            
+            
+            % make subject directory
+            subj_dir = [top_dir, 'FC/release',release, '/', protocol, '/', subj, '/'];
+            if ~exist(subj_dir, 'dir')
+                mkdir(subj_dir);
             end
             
-            save([subj_dir, 'alt_spikes', num2str(win_length), detector, '.mat'], 'errors');
+                       
+            if ~exist([top_dir, 'processed/release',release, '/', protocol, '/', subj, '/'], 'dir')
+                mkdir([top_dir, 'processed/release',release, '/', protocol, '/', subj, '/']);
+            end
+            
+            % check that we need data for this subj
+            if ~exist([top_dir, 'FC/release',release, '/', protocol, '/', subj, '/', 'win_', num2str(win_length), '/alt_spike', detector, '.csv'], 'file')                
+                % get experiements
+                eval(['experiments = fields(info.subjects.' subj, '.experiments);'])
+                for e = 1:numel(experiments)
+                    exper = experiments{e};
+                    
+                    % get seesions
+                    eval(['sessions = fields(info.subjects.' subj, '.experiments.', exper, '.sessions);'])
+                    for n = 1:numel(sessions)
+                        
+                        sess = sessions{n};
+                        sess = strsplit(sess, 'x');
+                        sess = sess{end};
+                        % get the path names for this session, loaded from a json file
+                        eval(['curr_info = info.subjects.' subj, '.experiments.' exper, '.sessions.x', sess, ';'])
+                        
+                        % folders
+                        data_dir = [top_dir, 'processed/release',release, '/', protocol, '/', subj, '/', exper, '/', sess, '/'];
+                        save_dir = [top_dir, 'FC/release',release, '/', protocol, '/', subj, '/', exper, '/', sess, '/'];
+                        img_dir = [top_dir, 'img/FC/release',release, '/', protocol, '/', subj, '/', exper, '/', sess, '/'];
+                        if ~exist(img_dir, 'dir')
+                            mkdir(img_dir);
+                        end
+                        if ~exist(save_dir, 'dir')
+                            mkdir(save_dir);
+                        end
+                        if ~exist([subj_dir, 'win_', num2str(win_length), '/'], 'dir')
+                            mkdir([subj_dir, 'win_', num2str(win_length), '/']);
+                        end
+                        
+                        if exist([img_dir, 'qq.png'], 'file')
+                           curr = rand(1,1);
+                           if curr < 0.1
+                               fprintf('\n %sqq.png', img_dir)
+                           end
+                            
+                        end
+                    end
+                end
+            end
         end
     end
 end

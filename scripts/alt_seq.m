@@ -20,7 +20,7 @@ releases = ['1', '2', '3'];
 
 spike_win = 0.05; %for loading spike data
 win_length = 1; % in seconds
-detector = '';
+detector = '_param1';
 
 for r = 1:numel(releases)
     release = releases(r);
@@ -66,7 +66,7 @@ for r = 1:numel(releases)
             
             % useful variables
             table_names = [{'subj'}, {'exper'}, {'sess'}, {'time'}, ...
-                {'elec_has_spike'}, {'spike_num'}, {'spike_spread'}];
+                {'elec_order'}, {'elec_has_spike'}, {'spike_num'}, {'spike_spread'}];
             
             % subjects not to use
             load([top_dir, 'bad_datasets.mat'])
@@ -79,7 +79,7 @@ for r = 1:numel(releases)
             end
             
             
-            spike_table = cell2table(cell(0,7), 'VariableNames', table_names);
+            spike_table = cell2table(cell(0,8), 'VariableNames', table_names);
             
             if ~exist([top_dir, 'processed/release',release, '/', protocol, '/', subj, '/'], 'dir')
                 mkdir([top_dir, 'processed/release',release, '/', protocol, '/', subj, '/']);
@@ -222,11 +222,14 @@ for r = 1:numel(releases)
                                     
                                     
                                     % will becoms columns in dataframe
-                                    elec_order = cell(nElec,1);
-                                    elec_in_spike = nan(nElec,1);
-                                    spike_nums = nan(nElec,1);
-                                    spike_spreads = nan(nElec,1);
-                                    time = nan(nElec,1);
+                                    nTrial = numel(spike_num);
+                                    elec_order = cell(nElec*nTrial,1);
+                                    elec_in_spike = nan(nElec*nTrial,1);
+                                    spike_nums = nan(nElec*nTrial,1);
+                                    spike_spreads = nan(nElec*nTrial,1);
+                                    time = nan(nElec*nTrial,1);
+                                    label = ft_data.label;
+                                    
                                     
                                     % add strengths for all bands
                                     cnt = 1;
@@ -236,31 +239,29 @@ for r = 1:numel(releases)
                                         region = regions{j};
                                         chan_idx = find(strcmp(label,label{j}));
                                         spike_flags = cellfun(@(x) any(chan_idx == x), spike_chan);
-                                        elec_idx = cellfun(@(x) any(strcmp(x, curr)), labelcmb(:,1)) |...
-                                            cellfun(@(x) any(strcmp(x, curr)), labelcmb(:,2));
+                                        elec_idx = cellfun(@(x) any(strcmp(x, curr)), label);
                                         
                                         
                                         % get other elec vars
-                                        elec_order(cnt) = repmat({curr}, nTrial, 1);
-                                        elec_in_spike(cnt) = spike_flags;
+                                        elec_order(cnt:(cnt+nTrial-1)) = repmat({curr}, nTrial, 1);
+                                        elec_in_spike(cnt:(cnt+nTrial-1)) = spike_flags;
                                         
                                         % get other spike vars
-                                        spike_nums(cnt) = spike_num;
-                                        spike_spreads(cnt) = spike_spread;
+                                        spike_nums(cnt:(cnt+nTrial-1)) = spike_num;
+                                        spike_spreads(cnt:(cnt+nTrial-1)) = spike_spread;
                                         
                                         %time vars
-                                        time(cnt) = time_vec;
+                                        time(cnt:(cnt+nTrial-1)) = time_vec;
                                         
                                         % update counter
-                                        cnt = cnt+1;
+                                        cnt = cnt+nTrial;
                                     end
                                     
-                                end
                                 
                                 % add things that are consistent
-                                subj_order = repmat({subj}, nElec, 1);
-                                exper_order = repmat({exper}, nElec, 1);
-                                sess_order = repmat({sess}, nElec, 1);
+                                subj_order = repmat({subj}, nElec*nTrial, 1);
+                                exper_order = repmat({exper}, nElec*nTrial, 1);
+                                sess_order = repmat({sess}, nElec*nTrial, 1);
                                 
                                 
                                 
@@ -268,7 +269,7 @@ for r = 1:numel(releases)
                                 spike_table = [spike_table; table(subj_order, exper_order, sess_order, time,...
                                     elec_order,elec_in_spike,spike_nums, spike_spreads, 'VariableNames', table_names)];
                                 
-                                
+                                end
                             end
                             %                 catch ME
                             %                     errors(end+1).files = [subj, '_', exper, '_', sess];

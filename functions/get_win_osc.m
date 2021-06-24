@@ -1,4 +1,4 @@
-function [] = get_win_osc(bands, detector, win_length, win_length_ir, step, filter, top_dir, release, protocol, subj)
+function [] = get_win_osc(bands, detector, win_length, win_length_ir, win, step, filter, top_dir, release, protocol, subj)
 % constants
 nBand = size(bands,1);
 

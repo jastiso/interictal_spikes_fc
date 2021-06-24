@@ -18,7 +18,7 @@ eval(['cd ', top_dir])
 releases = ['1', '2', '3'];
 
 % which detector are you using? '' for Janca et al, '_delphos' for delphos
-detector = '_param1';
+detector = '_param2';
 
 % parameters for eliminated spikes
 min_chan = 3; % minimum number of channels that need to be recruited
@@ -122,7 +122,7 @@ for r = 1:numel(releases)
                         marker = [];
                         
                         % get spikes
-                        if strcmp(detector,'')
+                        if strcmp(detector,'') || contains(detector, 'param')
                             
                             for j = 1:nTrial
                                 % initialize

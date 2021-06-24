@@ -113,3 +113,75 @@ for (s in subj){
 ```
 
 
+Get single plot of all strength distributions
+
+```{r}
+
+# intiialize, make constants
+# constant fields
+
+# final df
+col_names <- c("fc_measure", "band", 'band_measure', "subj", 'str')
+all_str <- data.frame(fc_measure=character(0), band=character(0), band_measure=character(0), subj=character(0), str=numeric(length=0))
+
+# for each subject, load their data and fit some models
+for (s in subj){
+  # load strengths from matlab
+  curr_csv <- paste(RAM_dir, 'FC/', s, '/win_', as.character(win), '/fc_data', detector, '.csv', sep = '')
+  if (file.exists(curr_csv) ){
+    node_data <- read.csv(curr_csv, header = TRUE, sep = ",", stringsAsFactors = FALSE,
+                          colClasses=c(gender='character', hand='character', race='numeric', age='numeric', spike_num='numeric'))
+    if (dim(node_data)[1] > 0){
+      message(paste('Subj', s)) 
+      # add band measure, combined string, for easy indexing (keep separate for plotting)
+      node_data <- mutate(node_data, band_measure = paste(band, fc_measure, sep = '_'))
+      # add sess_exper for model, dont actually want to model them separately
+      node_data <- mutate(node_data, sess_exper = paste(sess, exper, sep = '_'))
+      # add binary spike
+      node_data$bin_spike = node_data$spike_num > 0
+      # there shouldn't be any negative numbers, but if there are skip
+      if (any(node_data$spike_num[complete.cases(node_data$spike_num)] < 0)){
+        node_data$spike_num[node_data$spike_num < 0] = NaN
+        warning("This dataset had negative spike numbers: check the spreadsheet")
+        next
+      }
+      # there shouldn't be any NaNs, but if there are skip
+      if (any(is.nan(node_data$spike_num)) | any(is.na(node_data$spike_num))){
+        warning("This dataset had NaN spike numbers: check the spreadsheet")
+        next
+      }
+      
+      # drop hg phase locking - PLV not interpretable for wide band signals
+      node_data <- filter(node_data, band_measure != "hg_plv")
+      node_data <- filter(node_data, band_measure != "hg_iplv")
+      # remove duplicate time points, if present
+      node_data <- node_data %>% distinct()
+      
+      # get network level strength separated by groups
+      net_data <- group_by(node_data, sess_exper, time, spike_num, spike_spread, bin_spike, fc_measure, band, band_measure) %>%
+        dplyr::summarise(str = mean(str, na.rm=TRUE), ti = mean(ti, na.rm=TRUE),  power = mean(power))
+        net_data$subj = s
+        net_data = ungroup(net_data)
+        # concatenate
+        all_str <- rbind(net_data[,col_names], all_str) # silence warnings about converting factors to strings
+
+     }
+  }
+}
+
+# plots
+p3 <- ggplot(data=filter(all_str, fc_measure != 'aec', fc_measure != 'coh', fc_measure != 'plv'), 
+             aes(x=str,  fill=as.factor(band))) + 
+            geom_histogram(alpha=0.7) + theme_minimal() + scale_fill_manual(values=park_palette("GeneralGrant")) 
+p3 = p3 + facet_wrap('fc_measure',scales='free')
+p3
+ggsave(paste(RAM_dir, 'img/models/net_hist.png', sep=''), plot=p3, device = 'png')
+
+p <- ggplot(data=filter(all_str, fc_measure == 'ar', fc_measure != 'coh', fc_measure != 'plv'), 
+             aes(x=str,  fill=as.factor(band))) + 
+            geom_histogram(alpha=0.7) + theme_minimal() + scale_fill_manual(values=rgb(106/255,137/255,161/255)) + xlim(0,1)
+p
+ggsave(paste(RAM_dir, 'img/models/inset.png', sep=''), plot=p, device = 'png')
+
+```
+
