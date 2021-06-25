@@ -20,7 +20,22 @@ releases = ['1', '2', '3'];
 
 spike_win = 0.05; %for loading spike data
 win_length = 1; % in seconds
-detector = '_param1';
+detector = '_param2';
+if strcmp(detector, '')
+    discharge_tol=0.005; % taken from spike function
+    win = 0.05; % size of the window to look for the minimum number of channels, in seconds
+    seq = 0.015; % 15ms for spikes within a sequence, taken from Erin Conrads Brain paper
+elseif contains(detector, 'param1')
+    win = 0.03; % size of the window to look for the minimum number of channels, in seconds
+    seq = 0.05; % 15ms for spikes within a sequence, taken from Erin Conrads Brain paper
+elseif contains(detector, 'param2')
+    win = 0.1; % size of the window to look for the minimum number of channels, in seconds
+    seq = 0.03; % 15ms for spikes within a sequence, taken from Erin Conrads Brain paper
+elseif contains(detector, 'delphos')
+    spike_srate = 200;
+    win = 0.05; % size of the window to look for the minimum number of channels, in seconds
+    seq = 0.015; % 15ms for spikes within a sequence, taken from Erin Conrads Brain paper
+end
 
 for r = 1:numel(releases)
     release = releases(r);
@@ -125,7 +140,7 @@ for r = 1:numel(releases)
                             if strcmp(detector, '_delphos')
                                 load([data_dir, 'spike_info', detector, '.mat'])
                             else
-                                load([data_dir, 'spike_info_', detector, '.mat'])
+                                load([data_dir, 'spike_info_', num2str(spike_win), '.mat'])
                             end
                             load([data_dir, 'artifact.mat'])
                             load([data_dir, 'demographics.mat'])
