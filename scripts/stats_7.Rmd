@@ -42,7 +42,7 @@ spike_data <- mutate(spike_data, band_measure = paste(Frequency.Band, Measure, s
 
 ```
 
-Now the actualy stats - run this cell once per predictor
+Now the actual stats - run this cell once per predictor
 ```{r}
 pred = 'bin'# bin or num or spr
 aec_flag = 'aec$' # which aec do you want to EXCLUDE, orth or regular. The carrot mean "starts with", $                      means 'ends with'
@@ -73,7 +73,7 @@ stats
 Do changes in FC correlate with average IED rate
 
 ```{r}
-pred = 'num'
+pred = 'spr'
 aec_flag = 'aec$' # which aec do you want to EXCLUDE, orth or regular. The carrot mean "starts with", $                      means 'ends with'
 coh_flag = '^coh' # 
 plv_flag = '^plv$'

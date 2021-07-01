@@ -231,7 +231,7 @@ if ~exist([top_dir, 'FC/release',release, '/', protocol, '/', subj, '/', 'win_',
                         
                         % coh
                         fprintf('\ncoherence...\n')
-                        C = get_coh(wave,bands, 'regular');
+                        %C = get_coh(wave,bands, 'regular');
                         Ci = get_coh(wave,bands,'imaginary');
                         
                         % band limited, time resolved
@@ -261,11 +261,11 @@ if ~exist([top_dir, 'FC/release',release, '/', protocol, '/', subj, '/', 'win_',
                             % amp corr
                             fprintf('\namplitude envelope correlation...\n')
                             % unorthogonalized
-                            for j = 1:nTrial
-                                full_corr = corr(abs(bp_data.trial{j}'));
-                                aec(i,:,j) = full_corr(lower_tri);
-                            end
-                            
+%                             for j = 1:nTrial
+%                                 full_corr = corr(abs(bp_data.trial{j}'));
+%                                 aec(i,:,j) = full_corr(lower_tri);
+%                             end
+%                             
                             % orthogonalized Brookes et al., 2012, 2014
                             % if z1 and z2 are normalized so that
                             % mean(abs(zi)^2) = 1, then we replace
@@ -282,9 +282,9 @@ if ~exist([top_dir, 'FC/release',release, '/', protocol, '/', subj, '/', 'win_',
                             if curr_range(1) < 60
                                 for j = 1:nTrial
                                     curr_phase = bp_data.trial{j}./abs(bp_data.trial{j});
-                                    curr_plv = abs(curr_phase*curr_phase')/(size(bp_data.trial{j},2));
+                                    %curr_plv = abs(curr_phase*curr_phase')/(size(bp_data.trial{j},2));
                                     curr_iplv = imag(curr_phase*curr_phase')/size(bp_data.trial{j},2);
-                                    plv(i,:,j) = curr_plv(lower_tri);
+                                    %plv(i,:,j) = curr_plv(lower_tri);
                                     iplv(i,:,j) = curr_iplv(lower_tri);
                                 end
                             end

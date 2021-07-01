@@ -167,116 +167,24 @@ for r = 1:numel(releases)
                         if ~isempty(ft_data.trial)
                             
                             nElec = numel(ft_data.label);
-                            nPair = (nElec^2-nElec)/2;
                             
-                            % constants
-                            lower_tri = reshape(tril(true(nElec),-1),[],1);
-                            
-                            % get window start times
-                            trl = [];
-                            spike_index = [];
-                            spike_spread = [];
-                            spike_num = [];
-                            spike_chan = {};
-                            time_vec = [];
-                            cnt = 1;
-                            for i = 1:numel(ft_data.trial)
-                                idx = 1;
-                                curr_data = ft_data.trial{i};
-                                curr_spike = out_clean(i);
-                                curr_artifact = artifact_all(i);
-                                dur = size(curr_data,2);
-                                trl_offset = ft_data.sampleinfo(i,1);
-                                while (idx + (win_length*header.sample_rate)) <= dur
-                                    st = round(idx); % gets rid of scientific notation
-                                    en = round(st + (win_length*header.sample_rate));
-                                    st_ms = st/header.sample_rate;
-                                    en_ms = en/header.sample_rate;
-                                    spike_flag = 0;
-                                    % check if there is an artifact
-                                    if ~any(curr_artifact.idx(st:en))
-                                        % record if there is a spike, if so
-                                        % move idx up
-                                        if any((curr_spike.pos >= st_ms) & (curr_spike.pos <= en_ms))
-                                            spike_flag = 1;
-                                            % if there are spikes in this
-                                            % window, move the start to the
-                                            % first spike in the window
-                                            st = min(curr_spike.pos((curr_spike.pos >= st_ms) & (curr_spike.pos <= en_ms)))*header.sample_rate - 1;
-                                            en = st + (win_length*header.sample_rate - 1);
-                                        end
-                                        % check that we havent gone
-                                        % past the end of the data
-                                        if en <= dur
-                                            % get all the spikes in the window
-                                            curr_idx = (curr_spike.pos >= st_ms) & (curr_spike.pos <= en_ms);
-                                            seqs = unique(curr_spike.seq(curr_idx));
-                                            % update spike idx
-                                            spike_index(cnt) = spike_flag;
-                                            spike_num(cnt) = numel(unique(curr_spike.seq(curr_idx)));
-                                            if spike_flag
-                                                spread = zeros(spike_num(cnt), 1);
-                                                for m = 1:numel(spread)
-                                                    spread(m) = numel(unique(curr_spike.chan(curr_spike.seq == seqs(m) & curr_idx)));
-                                                end
-                                                spike_spread(cnt) = mean(spread);
-                                            else
-                                                spike_spread(cnt) = 0;
-                                            end
-                                            spike_chan(cnt) = {curr_spike.chan(curr_idx)};
-                                            % update trl
-                                            trl(cnt,:) = [st + (trl_offset - 1), en + (trl_offset - 1), 0];
-                                            % add time
-                                            time_vec(cnt) = (st + trl_offset - 1)/header.sample_rate;
-                                            % update cnt
-                                            cnt = cnt + 1;
-                                        end
-                                    end
-                                    idx = en + 1;
-                                end
+                            psds = zeros(nElec,nFreq);
+                            aper = zeros(nElec);
+                            for j = 1:nElec
+                                spec = get_IRASA_spec(ft_data.trial{1}(j,:), 1, numel(ft_data.trial{1}(j,:)), ft_data.fsample, win_length_ir, step, filter);
+                                psds(j,:) = mean(spec.mixd,2);
+                                x = spec.freq;
+                                y = mean(spec.frac,2);
+                                P = polyfit(log10(x),log10(y),1);
+                                aper(j) = P(1);
                             end
-                        end
-                        
-                        % check for oscillations
-                        % check that we found at least one window with
-                        % a spike
-                        if sum(spike_num) > 0
-                            %try
-                                % redefine trial
-                                cfg = [];
-                                cfg.trl = round(trl);
-                                win_data = ft_redefinetrial(cfg,ft_data);
-                                nTrial = numel(win_data.trial);
-                                clear ft_data artifact_all
-                                
-                                % prewhiten
-                                cfg = [];
-                                cfg.derivative = 'yes';
-                                ft_preprocessing(cfg, win_data);
-                                
-                                
-                                psds = zeros(nTrial,nElec,nFreq);
-                                aper = zeros(nTrial,nElec);
-                                for i = 1:nTrial
-                                    for j = 1:nElec
-                                        spec = get_IRASA_spec(win_data.trial{i}(j,:), 1, numel(win_data.trial{i}(j,:)), win_data.fsample, win_length_ir, step, filter);
-                                        psds(i,j,:) = mean(spec.mixd,2);
-                                        x = spec.freq;
-                                        y = mean(spec.frac,2);
-                                        P = polyfit(log10(x),log10(y),1);
-                                        aper(i,j) = P(1);
-                                    end
-                                end
-                                curr_clean = squeeze(mean(mean(psds(~spike_index,:,:))));
-                                curr_ied = squeeze(mean(mean(psds(logical(spike_index),:,:))));
-                                all_psd(cnt,:) = curr_clean;
-                                all_ied(cnt,:) = curr_ied;
-                                all_aper(cnt) = mean(mean(aper(~spike_index,:)));
-                                all_aperied(cnt) = mean(mean(aper(logical(spike_index),:)));
-                                cnt = cnt + 1;
-%                             catch
-%                                 fprintf("\nError for subj %s", subj)
-%                             end
+                            curr_clean = squeeze(mean(mean(psds)));
+                            all_psd(cnt,:) = curr_clean;
+                            all_aper(cnt) = mean(mean(aper));
+                            cnt = cnt + 1;
+                            %                             catch
+                            %                                 fprintf("\nError for subj %s", subj)
+                            %                             end
                         end
                     end
                 end
