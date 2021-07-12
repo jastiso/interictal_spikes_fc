@@ -1,10 +1,11 @@
-%% Count oscillations
+%% Get PSDs for IED and normal windows
 
 clear
 clc
 close all
 warning ON
 
+restoredefaultpath
 addpath(genpath('/Users/stiso/Documents/Code/interictal_spikes_fc/'))
 addpath('/Users/stiso/Documents/MATLAB/fieldtrip-20170830/')
 addpath(genpath('/Users/stiso/Documents/MATLAB/IRASA/'))
@@ -19,9 +20,12 @@ win_length = 1; % in seconds
 detector = '';
 win_length_ir = 400; % in ms
 step = 50; %in ms
-filter = 0; % with ot without lowpass alaising filter
+filter = 0; % without lowpass alaising filter
 
-perc_spike = [];
+all_psd = [];
+all_ied = [];
+all_aper = [];
+all_aperied = [];
 cnt = 1;
 
 % global variables
@@ -41,53 +45,12 @@ band_names = [{'theta'}, {'alpha'}, {'beta'}, {'gamma'}];
 nBand = size(bands,1);
 all_osc = {};
 cnt = 1;
+nFreq = 34; % number of frequencies in the IRASA
 
 % subjects not to use
 load([top_dir, 'bad_datasets.mat'])
 errors = struct('files', [], 'message', []);
 
-%%
-for r = 1:numel(releases)
-    release = releases(r);
-    
-    release_dir = [top_dir, 'release', release '/'];
-    
-    % remove parent and hidden directories, then get protocols
-    folders = dir([release_dir '/protocols']);
-    folders = {folders([folders.isdir]).name};
-    protocols = folders(cellfun(@(x) ~contains(x, '.'), folders));
-    
-    % just for testing that qsub fuction will work
-    for p = 1:numel(protocols)
-        protocol = protocols{p};
-        
-        % get global info struct
-        fname = [release_dir 'protocols/', protocol, '.json'];
-        fid = fopen(fname);
-        raw = fread(fid);
-        str = char(raw');
-        fclose(fid);
-        info = jsondecode(str);
-        info = info.protocols.r1;
-        
-        % get subjects
-        subjects = fields(info.subjects);
-        parfor s = 1:numel(subjects)
-            subj = subjects{s};
-            
-            get_win_osc(bands, detector, win_length, win_length_ir, spike_win, step, filter, top_dir, release, protocol, subj)
-        end
-    end
-end
-
-
-%% Make plots
-% want the average and variance of the percent of contacts with osc in
-% each window
-
-vari = [];
-mu = [];
-cnto = 1;
 for r = 1:numel(releases)
     release = releases(r);
     
@@ -115,6 +78,10 @@ for r = 1:numel(releases)
         subjects = fields(info.subjects);
         for s = 1:numel(subjects)
             subj = subjects{s};
+            
+            % constants
+            nBand = size(bands,1);
+            
             release_dir = [top_dir, 'release', release '/'];
             
             % get global info struct
@@ -139,7 +106,9 @@ for r = 1:numel(releases)
             if ~exist([top_dir, 'processed/release',release, '/', protocol, '/', subj, '/'], 'dir')
                 mkdir([top_dir, 'processed/release',release, '/', protocol, '/', subj, '/']);
             end
-                        
+            
+            fprintf('\n******************************************\nStarting psd comparison for subject %s...\n', subj)
+            
             % get experiements
             eval(['experiments = fields(info.subjects.' subj, '.experiments);'])
             for e = 1:numel(experiments)
@@ -169,17 +138,54 @@ for r = 1:numel(releases)
                         mkdir([subj_dir, 'win_', num2str(win_length), '/']);
                     end
                     
-                    if exist([data_dir, 'osc.mat'], 'file')
-                        fprintf('\n******************************************Finishing oscillation counts for subject %s...\n', subj)
-                        load([data_dir, 'osc.mat'])
-                        nElec = size(osc,3);
-                        
-                        % get mean and var of the percent
-                        for k = 1:nBand
-                            mu(k,cnto) = mean(sum(osc(:,k,:),3)/nElec*100);
-                            vari(k,cnto) = var(sum(osc(:,k,:),3)/nElec*100);
+                    if exist([data_dir, 'data_clean.mat'], 'file') && (exist([data_dir, 'spike_info', detector, '.mat'], 'file') || exist([data_dir, 'spike_info', num2str(win), '.mat'], 'file'))
+                        load([data_dir, 'data_clean.mat'])
+                        load([data_dir, 'header.mat'])
+                        load([data_dir, 'channel_info.mat'])
+                        if strcmp(detector, '')
+                            load([data_dir, 'spike_info_', num2str(spike_win), '.mat'])
+                        else
+                            load([data_dir, 'spike_info', detector, '.mat'])
                         end
-                        cnto = cnto + 1;
+                        load([data_dir, 'artifact.mat'])
+                        load([data_dir, 'demographics.mat'])
+                        %try
+                        % check if this subect has clean data
+                        reject = zeros(numel(ft_data.trial),1);
+                        for i = 1:numel(ft_data.trial)
+                            curr_ext = [subj, '_' exper, '_', sess, '_', num2str(i)];
+                            reject(i) = any(strcmp(curr_ext, bad_datasets));
+                        end
+                        fprintf('\nRejected %d datasets\n', sum(reject))
+                        
+                        ft_data.trial = ft_data.trial(~reject);
+                        ft_data.time = ft_data.time(~reject);
+                        out_clean = out_clean(~reject);
+                        artifact_all = artifact_all(~reject);
+                        ft_data.sampleinfo = ft_data.sampleinfo(~reject,:);
+                        
+                        if ~isempty(ft_data.trial)
+                            
+                            nElec = numel(ft_data.label);
+                            
+                            psds = zeros(nElec,nFreq);
+                            aper = zeros(nElec);
+                            for j = 1:nElec
+                                spec = get_IRASA_spec(ft_data.trial{1}(j,:), 1, numel(ft_data.trial{1}(j,:)), ft_data.fsample, win_length_ir, step, filter);
+                                psds(j,:) = mean(spec.mixd,2);
+                                x = spec.freq;
+                                y = mean(spec.frac,2);
+                                P = polyfit(log10(x),log10(y),1);
+                                aper(j) = P(1);
+                            end
+                            curr_clean = squeeze(mean(mean(psds)));
+                            all_psd(cnt,:) = curr_clean;
+                            all_aper(cnt) = mean(mean(aper));
+                            cnt = cnt + 1;
+                            %                             catch
+                            %                                 fprintf("\nError for subj %s", subj)
+                            %                             end
+                        end
                     end
                 end
             end
@@ -187,17 +193,10 @@ for r = 1:numel(releases)
     end
 end
 
+save([top_dir, 'processed/slopes.mat'], 'all_aper')
+save([top_dir, 'processed/psds.mat'], 'all_psd')
 
-% plot
-colors = ["#516888", "#FBE697", "#F3AE6D", "#C9DACA"];
 figure(1); clf
-for k = 1:nBand
-    subplot(1,2,1)
-    histogram((mu(5-k,:)), 'FaceColor', colors(5-k), 'EdgeColor', 'none', 'FaceAlpha', .9); hold on
-    title('Mean Percentage of Contacts with Oscillation')
-    subplot(1,2,2)
-    histogram((vari(5-k,:)), 'FaceColor', colors(5-k), 'EdgeColor', 'none', 'FaceAlpha', .9); hold on
-    title('Variance of Percentage of Contacts with Oscillations')
-    legend(band_names)
-end
-saveas(gca, [top_dir, 'img/osc_hist.pdf'], 'pdf')
+histogram(all_aper)
+saveas(g[top_dir, 'img/slopes.png'], 'png')
+

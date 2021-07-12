@@ -19,7 +19,7 @@ releases = ['1', '2', '3'];
 
 spike_win = 0.05; %for loading spike data
 win_length = 1; % in seconds
-detector = '';
+detector = '_delphos_auto';
 
 for r = 1:numel(releases)
     release = releases(r);
