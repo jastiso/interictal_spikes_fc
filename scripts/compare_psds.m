@@ -35,7 +35,7 @@ releases = ['1', '2', '3'];
 
 spike_win = 0.05; %for loading spike data
 win_length = 1; % in seconds
-detector = '_delphos_auto';
+detector = '';
 
 %bands
 freqs = unique(round(logspace(log10(4),log10(150),30)));
@@ -44,12 +44,8 @@ band_names = [{'theta'}, {'alpha'}, {'beta'}, {'gamma'}];
 % constants
 nBand = size(bands,1);
 all_osc = {};
-cnt = 1;
 nFreq = 34; % number of frequencies in the IRASA
 
-% subjects not to use
-load([top_dir, 'bad_datasets.mat'])
-errors = struct('files', [], 'message', []);
 
 for r = 1:numel(releases)
     release = releases(r);
@@ -79,7 +75,7 @@ for r = 1:numel(releases)
         parfor s = 1:numel(subjects)
             subj = subjects{s};
             
-            psds(bands, detector, win_length, win_length_ir, spike_win, step, filter, top_dir, release, protocol, subj)
+            psds(bands, detector, win_length, win_length_ir, spike_win, step, filter, top_dir, release, protocol, subj, nFreq)
         end
     end
 end
@@ -88,12 +84,70 @@ end
 %% Make plots
 
 % load the data
-
-
+cnt = 1;
+group_aper = [];
+group_psd = [];
+group_iedaper = [];
+group_iedpsd = [];
+for r = 1:numel(releases)
+    release = releases(r);
+    
+    release_dir = [top_dir, 'release', release '/'];
+    
+    % remove parent and hidden directories, then get protocols
+    folders = dir([release_dir '/protocols']);
+    folders = {folders([folders.isdir]).name};
+    protocols = folders(cellfun(@(x) ~contains(x, '.'), folders));
+    
+    % just for testing that qsub fuction will work
+    for p = 1:numel(protocols)
+        protocol = protocols{p};
+        
+        % get global info struct
+        fname = [release_dir 'protocols/', protocol, '.json'];
+        fid = fopen(fname);
+        raw = fread(fid);
+        str = char(raw');
+        fclose(fid);
+        info = jsondecode(str);
+        info = info.protocols.r1;
+        
+        % get subjects
+        subjects = fields(info.subjects);
+        for s = 1:numel(subjects)
+            subj = subjects{s};
+            if exist([top_dir, 'processed/release',release, '/', protocol, '/', subj, '/slopes.mat'], 'file') && exist([top_dir, 'processed/release',release, '/', protocol, '/', subj, '/psds.mat'], 'file')
+                fprintf('Subj %s\n', subj)
+                load([top_dir, 'processed/release',release, '/', protocol, '/', subj, '/slopes.mat'], 'all_aper', 'all_aperied')
+                load([top_dir, 'processed/release',release, '/', protocol, '/', subj, '/psds.mat'], 'all_psd', 'all_ied')
+                if ~isempty(all_aper)
+                    try
+                    group_aper(cnt) = mean(all_aper);
+                    group_psd(cnt,:) = mean(all_psd,1);
+                    group_iedaper(cnt) = mean(all_aperied);
+                    group_iedpsd(cnt,:) = mean(all_ied,1);
+                    cnt = cnt + 1;
+                    catch
+                        if ~exist(all_aperied)
+                            delete([top_dir, 'processed/release',release, '/', protocol, '/', subj, '/psds.mat']);
+                        delete([top_dir, 'processed/release',release, '/', protocol, '/', subj, '/slopes.mat'])
+                        end
+                    end
+                else
+                    delete([top_dir, 'processed/release',release, '/', protocol, '/', subj, '/psds.mat']);
+                    delete([top_dir, 'processed/release',release, '/', protocol, '/', subj, '/slopes.mat'])
+                end
+            end
+        end
+    end
+end
 figure(1); clf
-histogram(all_aper)
+histogram(group_aper, 10); hold on
+histogram(group_iedaper,10)
 saveas(gca,[top_dir, 'img/slopes.png'], 'png')
 
-figure(1); clf
-histogram(all_aper)
-saveas(gca,[top_dir, 'img/slopes.png'], 'png')
+figure(2); clf
+plot(linspace(2,70,34),log(group_psd), 'k'); hold on % freqs taken from get_IRASA_spec function
+plot(linspace(2,70,34),log(group_iedpsd), 'b');
+saveas(gca,[top_dir, 'img/psds.png'], 'png')
+

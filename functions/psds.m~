@@ -61,8 +61,8 @@ for e = 1:numel(experiments)
         if ~exist([subj_dir, 'win_', num2str(win_length), '/'], 'dir')
             mkdir([subj_dir, 'win_', num2str(win_length), '/']);
         end
-        if exist([data_dir, 'data_clean.mat'], 'file') && (exist([data_dir, 'spike_info', detector, '.mat'], 'file') || exist([data_dir, 'spike_info_', num2str(spike_win), '.mat'], 'file'))...
-                && ~exist([top_dir, 'processed/release',release, '/', protocol, '/', subj, '/slopes.mat'], 'file')
+        [data_dir, 'spike_info', num2str(spike_win), '.mat']
+        if exist([data_dir, 'data_clean.mat'], 'file') && (exist([data_dir, 'spike_info', detector, '.mat'], 'file') || exist([data_dir, 'spike_info', num2str(spike_win), '.mat'], 'file'))
             load([data_dir, 'data_clean.mat'])
             load([data_dir, 'header.mat'])
             load([data_dir, 'channel_info.mat'])
@@ -156,9 +156,9 @@ for e = 1:numel(experiments)
                 end
                 
                 % get aper and psd for each window
-                nSpike = sum(spike_index);
-                spike_ids = find(spike_index);
-                alt_inds = find(~spike_index);
+                nSpike = sum(spike_idx);
+                spike_ids = find(spike_idx);
+                alt_ids = find(~spike_idx);
                 if nSpike > 0
                     % redefine trial
                     cfg = [];
@@ -193,12 +193,12 @@ for e = 1:numel(experiments)
                             aper((end - (i-1)),j) = P(1);
                         end
                     end
-                    curr_clean = squeeze(mean(mean(psds(1:nSpike,:,:))));
-                    curr_ied = squeeze(mean(mean(psds((nSpike+1):end,:,:))));
+                    curr_clean = squeeze(mean(psds(1:nSpike,:,:)));
+                    curr_ied = squeeze(mean(psds((nSpike+1):end,:,:)));
                     all_psd(cnt,:) = curr_clean;
                     all_ied(cnt,:) = curr_ied;
-                    all_aper(cnt) = mean(mean(aper(1:nSpike,:)));
-                    all_aperied(cnt) = mean(mean(mean(aper((nSpike+1):end,:))));
+                    all_aper(cnt) = mean(aper(1:nSpike,:));
+                    all_aperied(cnt) = mean(mean(aper((nSpike+1):end,:)));
                     cnt = cnt + 1;
                 end
             end

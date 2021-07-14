@@ -63,7 +63,7 @@ for e = 1:numel(experiments)
             load([data_dir, 'header.mat'])
             load([data_dir, 'channel_info.mat'])
             if strcmp(detector, '')
-                load([data_dir, 'spike_info_', num2str(spike_win), '.mat'])
+                load([data_dir, 'spike_info_', num2str(win), '.mat'])
             else
                 load([data_dir, 'spike_info', detector, '.mat'])
             end
@@ -89,9 +89,7 @@ for e = 1:numel(experiments)
                 nElec = numel(ft_data.label);
                 nPair = (nElec^2-nElec)/2;
                 
-                % constants
-                lower_tri = reshape(tril(true(nElec),-1),[],1);
-                
+               
                 % get window start times
                 trl = [];
                 spike_index = [];
