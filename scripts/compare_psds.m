@@ -129,13 +129,13 @@ for r = 1:numel(releases)
                     cnt = cnt + 1;
                     catch
                         if ~exist(all_aperied)
-                            delete([top_dir, 'processed/release',release, '/', protocol, '/', subj, '/psds.mat']);
-                        delete([top_dir, 'processed/release',release, '/', protocol, '/', subj, '/slopes.mat'])
+                            %delete([top_dir, 'processed/release',release, '/', protocol, '/', subj, '/psds.mat']);
+                            %delete([top_dir, 'processed/release',release, '/', protocol, '/', subj, '/slopes.mat'])
                         end
                     end
                 else
-                    delete([top_dir, 'processed/release',release, '/', protocol, '/', subj, '/psds.mat']);
-                    delete([top_dir, 'processed/release',release, '/', protocol, '/', subj, '/slopes.mat'])
+                    %delete([top_dir, 'processed/release',release, '/', protocol, '/', subj, '/psds.mat']);
+                    %delete([top_dir, 'processed/release',release, '/', protocol, '/', subj, '/slopes.mat'])
                 end
             end
         end
@@ -147,7 +147,11 @@ histogram(group_iedaper,10)
 saveas(gca,[top_dir, 'img/slopes.png'], 'png')
 
 figure(2); clf
-plot(linspace(2,70,34),log(group_psd), 'k'); hold on % freqs taken from get_IRASA_spec function
-plot(linspace(2,70,34),log(group_iedpsd), 'b');
+for i = 1:size(group_psd,1)
+    lh1 = plot(linspace(2,70,34),log(group_psd(i,:)), 'color', rgb('slategray')); hold on % freqs taken from get_IRASA_spec function
+    lh2 = plot(linspace(2,70,34),log(group_iedpsd(i,:)), 'color', rgb('sandybrown'));
+    lh1.Color = [lh1.Color 0.5];
+    lh2.Color = [lh2.Color 0.5];
+end
 saveas(gca,[top_dir, 'img/psds.png'], 'png')
 

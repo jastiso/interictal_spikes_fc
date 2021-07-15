@@ -193,13 +193,17 @@ for e = 1:numel(experiments)
                             aper((end - (i-1)),j) = P(1);
                         end
                     end
-                    curr_clean = squeeze(mean(mean(psds(1:nSpike,:,:))));
-                    curr_ied = squeeze(mean(mean(psds((nSpike+1):end,:,:))));
-                    all_psd(cnt,:) = curr_clean;
-                    all_ied(cnt,:) = curr_ied;
-                    all_aper(cnt) = mean(mean(aper(1:nSpike,:)));
-                    all_aperied(cnt) = mean(mean(mean(aper((nSpike+1):end,:))));
-                    cnt = cnt + 1;
+                    try
+                        curr_clean = squeeze(mean(mean(psds(1:nSpike,:,:))));
+                        curr_ied = squeeze(mean(mean(psds((nSpike+1):end,:,:))));
+                        all_psd(cnt,:) = curr_clean;
+                        all_ied(cnt,:) = curr_ied;
+                        all_aper(cnt) = mean(mean(aper(1:nSpike,:)));
+                        all_aperied(cnt) = mean(mean(mean(aper((nSpike+1):end,:))));
+                        cnt = cnt + 1;
+                    catch
+                        fprintf('Size issues')
+                    end
                 end
             end
         end

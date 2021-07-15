@@ -22,7 +22,7 @@ RAM_dir = '/Volumes/bassett-data/Jeni/RAM/'
 
 # parameters
 win = 1
-detector = ''
+detector = '_delphos_auto'
 
 ```
 
@@ -127,15 +127,16 @@ node_ys = c('str', "ti") # to save space and time, only run the main ys for node
 
 # final df
 col_names <- c("fc_measure", "band", 'band_measure', "subj", "hand", "age", "gender", "race", 'n_tp',
-               'str_beta_bin', 'str_beta_num', 'str_beta_spr', 'ti_beta_bin', 'ti_beta_num', 'ti_beta_spr',
-               'str_soz_beta_bin', 'str_soz_beta_num', 'str_soz_beta_spr',
-               'str_not_soz_beta_bin', 'str_not_soz_beta_num', 'str_not_soz_beta_spr', 
-               'str_spike_beta_bin', 'str_spike_beta_num', 'str_spike_beta_spr',
-               'str_not_spike_beta_bin', 'str_not_spike_beta_num', 'str_not_spike_beta_spr',
-               'str_grid_beta_bin', 'str_brid_beta_num', 'str_grid_beta_spr', 
-               'str_depth_beta_bin', 'str_depth_beta_num', 'str_depth_beta_spr',
-               'str_gm_beta_bin', 'str_gm_beta_num' ,'str_gm_beta_spr',
-               'str_wm_beta_bin', 'str_wm_beta_num', 'str_wm_beta_spr')
+                 'str_beta_bin', 'str_beta_num', 'str_beta_spr', 'ti_beta_bin', 'ti_beta_num', 'ti_beta_spr',
+                 'str_soz_beta_bin', 'str_soz_beta_num', 'str_soz_beta_spr',
+                 'str_not_soz_beta_bin', 'str_not_soz_beta_num', 'str_not_soz_beta_spr', 
+                 'str_spike_beta_bin', 'str_spike_beta_num', 'str_spike_beta_spr',
+                 'str_not_spike_beta_bin', 'str_not_spike_beta_num', 'str_not_spike_beta_spr',
+                 'str_grid_beta_bin', 'str_grid_beta_num', 'str_grid_beta_spr', 
+                 'str_depth_beta_bin', 'str_depth_beta_num', 'str_depth_beta_spr',
+                 'str_gm_beta_bin', 'str_gm_beta_num' ,'str_gm_beta_spr',
+                 'str_wm_beta_bin', 'str_wm_beta_num', 'str_wm_beta_spr')
+
 net_betas <- data.frame(matrix(ncol = length(col_names), nrow = 0))
 colnames(net_betas) = col_names
 col_names = c("subj", "fc_measure", "band", 'band_measure', "wm", "n_tp", "elec_in_soz", "elec_spike", 
@@ -266,7 +267,7 @@ for (s in subj){
         curr_net_beta[const_vars] <- net_data[const_vars][1,]
         
         # concatenate
-        net_betas <- suppressWarnings(bind_rows(curr_net_beta, net_betas)) # silence warnings about converting factors to strings
+        net_betas <- suppressWarnings(rbind(curr_net_beta, net_betas)) # silence warnings about converting factors to strings
       })
   
       # fit node models
@@ -282,7 +283,7 @@ for (s in subj){
             curr_node_beta[const_vars] <- net_data[const_vars][1,]
             
           #  concetenate
-          node_betas <- suppressWarnings(bind_rows(curr_node_beta, node_betas)) # silence warnings about converting factors to strings
+          node_betas <- suppressWarnings(rbind(curr_node_beta, node_betas)) # silence warnings about converting factors to strings
         })
      }
   }
