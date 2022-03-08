@@ -304,6 +304,7 @@ for p = 1:numel(protocols)
                     header.sample_rate = 500;
                     header.n_samples = size(data_raw,2);
                     
+                    
                     %% Epoch
                     
                     % check that we have enought data, now

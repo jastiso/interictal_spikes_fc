@@ -23,6 +23,8 @@ detector = '';
 nWin = 1;
 cnt = 1;
 all_wins = [];
+ks = [];
+ps = [];
 
 for r = 1:numel(releases)
     release = releases(r);
@@ -132,115 +134,125 @@ for r = 1:numel(releases)
                             end
                             load([data_dir, 'artifact.mat'])
                             load([data_dir, 'demographics.mat'])
-                            %try
-                            % check if this subect has clean data
-                            reject = zeros(numel(ft_data.trial),1);
-                            for i = 1:numel(ft_data.trial)
-                                curr_ext = [subj, '_' exper, '_', sess, '_', num2str(i)];
-                                reject(i) = any(strcmp(curr_ext, bad_datasets));
-                            end
-                            fprintf('\nRejected %d datasets\n', sum(reject))
-                            
-                            ft_data.trial = ft_data.trial(~reject);
-                            ft_data.time = ft_data.time(~reject);
-                            out_clean = out_clean(~reject);
-                            artifact_all = artifact_all(~reject);
-                            ft_data.sampleinfo = ft_data.sampleinfo(~reject,:);
-                            
-                            if ~isempty(ft_data.trial)
-                                
-                                nElec = numel(ft_data.label);
-                                nPair = (nElec^2-nElec)/2;
-                                
-                                % constants
-                                lower_tri = reshape(tril(true(nElec),-1),[],1);
-                                
-                                % get window start times
-                                trl = [];
-                                spike_index = [];
-                                spike_spread = [];
-                                spike_num = [];
-                                spike_chan = {};
-                                time_vec = [];
-                                cnt = 1;
+                            try
+                                % check if this subect has clean data
+                                reject = zeros(numel(ft_data.trial),1);
                                 for i = 1:numel(ft_data.trial)
-                                    idx = 1;
-                                    curr_data = ft_data.trial{i};
-                                    curr_spike = out_clean(i);
-                                    curr_artifact = artifact_all(i);
-                                    dur = size(curr_data,2);
-                                    trl_offset = ft_data.sampleinfo(i,1);
-                                    while (idx + (win_length*header.sample_rate)) <= dur
-                                        st = round(idx); % gets rid of scientific notation
-                                        en = round(st + (win_length*header.sample_rate));
-                                        st_ms = st/header.sample_rate;
-                                        en_ms = en/header.sample_rate;
-                                        spike_flag = 0;
-                                        % check if there is an artifact
-                                        if ~any(curr_artifact.idx(st:en))
-                                            % record if there is a spike, if so
-                                            % move idx up
-                                            if any((curr_spike.pos >= st_ms) & (curr_spike.pos <= en_ms))
-                                                spike_flag = 1;
-                                                % if there are spikes in this
-                                                % window, move the start to the
-                                                % first spike in the window
-                                                st = min(curr_spike.pos((curr_spike.pos >= st_ms) & (curr_spike.pos <= en_ms)))*header.sample_rate - 1;
-                                                en = st + (win_length*header.sample_rate - 1);
-                                            end
-                                            % check that we havent gone
-                                            % past the end of the data
-                                            if en <= dur
-                                                % get all the spikes in the window
-                                                curr_idx = (curr_spike.pos >= st_ms) & (curr_spike.pos <= en_ms);
-                                                seqs = unique(curr_spike.seq(curr_idx));
-                                                % update spike idx
-                                                spike_index(cnt) = spike_flag;
-                                                spike_num(cnt) = numel(unique(curr_spike.seq(curr_idx)));
-                                                if spike_flag
-                                                    spread = zeros(spike_num(cnt), 1);
-                                                    for m = 1:numel(spread)
-                                                        spread(m) = numel(unique(curr_spike.chan(curr_spike.seq == seqs(m) & curr_idx)));
-                                                    end
-                                                    spike_spread(cnt) = mean(spread);
-                                                else
-                                                    spike_spread(cnt) = 0;
+                                    curr_ext = [subj, '_' exper, '_', sess, '_', num2str(i)];
+                                    reject(i) = any(strcmp(curr_ext, bad_datasets));
+                                end
+                                fprintf('\nRejected %d datasets\n', sum(reject))
+                                
+                                ft_data.trial = ft_data.trial(~reject);
+                                ft_data.time = ft_data.time(~reject);
+                                out_clean = out_clean(~reject);
+                                artifact_all = artifact_all(~reject);
+                                ft_data.sampleinfo = ft_data.sampleinfo(~reject,:);
+                                
+                                if ~isempty(ft_data.trial)
+                                    
+                                    nElec = numel(ft_data.label);
+                                    nPair = (nElec^2-nElec)/2;
+                                    
+                                    % constants
+                                    lower_tri = reshape(tril(true(nElec),-1),[],1);
+                                    
+                                    % get window start times
+                                    trl = [];
+                                    spike_index = [];
+                                    spike_spread = [];
+                                    spike_num = [];
+                                    spike_chan = {};
+                                    time_vec = [];
+                                    cnt = 1;
+                                    for i = 1:numel(ft_data.trial)
+                                        idx = 1;
+                                        curr_data = ft_data.trial{i};
+                                        curr_spike = out_clean(i);
+                                        curr_artifact = artifact_all(i);
+                                        dur = size(curr_data,2);
+                                        trl_offset = ft_data.sampleinfo(i,1);
+                                        while (idx + (win_length*header.sample_rate)) <= dur
+                                            st = round(idx); % gets rid of scientific notation
+                                            en = round(st + (win_length*header.sample_rate));
+                                            st_ms = st/header.sample_rate;
+                                            en_ms = en/header.sample_rate;
+                                            spike_flag = 0;
+                                            % check if there is an artifact
+                                            if ~any(curr_artifact.idx(st:en))
+                                                % record if there is a spike, if so
+                                                % move idx up
+                                                if any((curr_spike.pos >= st_ms) & (curr_spike.pos <= en_ms))
+                                                    spike_flag = 1;
+                                                    % if there are spikes in this
+                                                    % window, move the start to the
+                                                    % first spike in the window
+                                                    st = min(curr_spike.pos((curr_spike.pos >= st_ms) & (curr_spike.pos <= en_ms)))*header.sample_rate - 1;
+                                                    en = st + (win_length*header.sample_rate - 1);
                                                 end
-                                                spike_chan(cnt) = {curr_spike.chan(curr_idx)};
-                                                % update trl
-                                                trl(cnt,:) = [st + (trl_offset - 1), en + (trl_offset - 1), 0];
-                                                % add time
-                                                time_vec(cnt) = (st + trl_offset - 1)/header.sample_rate;
-                                                % update cnt
-                                                cnt = cnt + 1;
+                                                % check that we havent gone
+                                                % past the end of the data
+                                                if en <= dur
+                                                    % get all the spikes in the window
+                                                    curr_idx = (curr_spike.pos >= st_ms) & (curr_spike.pos <= en_ms);
+                                                    seqs = unique(curr_spike.seq(curr_idx));
+                                                    % update spike idx
+                                                    spike_index(cnt) = spike_flag;
+                                                    spike_num(cnt) = numel(unique(curr_spike.seq(curr_idx)));
+                                                    if spike_flag
+                                                        spread = zeros(spike_num(cnt), 1);
+                                                        for m = 1:numel(spread)
+                                                            spread(m) = numel(unique(curr_spike.chan(curr_spike.seq == seqs(m) & curr_idx)));
+                                                        end
+                                                        spike_spread(cnt) = mean(spread);
+                                                    else
+                                                        spike_spread(cnt) = 0;
+                                                    end
+                                                    spike_chan(cnt) = {curr_spike.chan(curr_idx)};
+                                                    % update trl
+                                                    trl(cnt,:) = [st + (trl_offset - 1), en + (trl_offset - 1), 0];
+                                                    % add time
+                                                    time_vec(cnt) = (st + trl_offset - 1)/header.sample_rate;
+                                                    % update cnt
+                                                    cnt = cnt + 1;
+                                                end
                                             end
+                                            idx = en + 1;
                                         end
-                                        idx = en + 1;
+                                    end
+                                    
+                                    if ~isempty(trl)
+                                        % redefine trial
+                                        cfg = [];
+                                        cfg.trl = round(trl);
+                                        win_data = ft_redefinetrial(cfg,ft_data);
+                                        nTrial = numel(win_data.trial);
+                                        clear ft_data artifact_all
+                                        
+                                        % prewhiten
+                                        cfg = [];
+                                        cfg.derivative = 'yes';
+                                        ft_preprocessing(cfg, win_data);
+                                        
+                                        % randomly select some indices
+                                        inds = randi(nTrial, [1,nWin]);
+                                        einds =  randi(nElec, [1,10]);
+                                        curr = win_data.trial{inds}(einds,:);
+                                        
+                                        figure(1); clf
+                                        qqplot(curr');
+                                        set(gca,'FontSize',20)
+                                        saveas(gca, [img_dir, 'qq.png'], 'png')
+                                        
+                                        % add ks stat
+                                        for ind = 1:10
+                                            [h,p,ksstat,cv] = adtest(curr(ind,:));
+                                            ks = [ks,ksstat];
+                                            ps = [ps,p];
+                                        end
                                     end
                                 end
-                                
-                                if ~isempty(trl)
-                                    % redefine trial
-                                    cfg = [];
-                                    cfg.trl = round(trl);
-                                    win_data = ft_redefinetrial(cfg,ft_data);
-                                    nTrial = numel(win_data.trial);
-                                    clear ft_data artifact_all
-                                    
-                                    % prewhiten
-                                    cfg = [];
-                                    cfg.derivative = 'yes';
-                                    ft_preprocessing(cfg, win_data);
-                                    
-                                    % randomly select some indices
-                                    inds = randi(nTrial, [1,nWin]);
-                                    einds =  randi(nElec, [1,10]);
-                                    curr = win_data.trial{inds}(einds,:);
-                                    
-                                    figure(1); clf
-                                    qqplot(curr')
-                                    saveas(gca, [img_dir, 'qq.png'], 'png')
-                                end
+                            catch
                             end
                         end
                     end
@@ -249,6 +261,12 @@ for r = 1:numel(releases)
         end
     end
 end
+
+% plot tests
+histogram(ks)
+saveas(gca, [img_dir, 'andersen_darling.png'], 'png')
+histogram(log(ps))
+saveas(gca, [img_dir, 'qq.png'], 'png')
 
 %% randomly generate list for figure
 
@@ -305,13 +323,13 @@ for r = 1:numel(releases)
                 mkdir(subj_dir);
             end
             
-                       
+            
             if ~exist([top_dir, 'processed/release',release, '/', protocol, '/', subj, '/'], 'dir')
                 mkdir([top_dir, 'processed/release',release, '/', protocol, '/', subj, '/']);
             end
             
             % check that we need data for this subj
-            if ~exist([top_dir, 'FC/release',release, '/', protocol, '/', subj, '/', 'win_', num2str(win_length), '/alt_spike', detector, '.csv'], 'file')                
+            if ~exist([top_dir, 'FC/release',release, '/', protocol, '/', subj, '/', 'win_', num2str(win_length), '/alt_spike', detector, '.csv'], 'file')
                 % get experiements
                 eval(['experiments = fields(info.subjects.' subj, '.experiments);'])
                 for e = 1:numel(experiments)
@@ -342,10 +360,10 @@ for r = 1:numel(releases)
                         end
                         
                         if exist([img_dir, 'qq.png'], 'file')
-                           curr = rand(1,1);
-                           if curr < 0.05
-                               fprintf('\n %sqq.png', img_dir)
-                           end
+                            curr = rand(1,1);
+                            if curr < 0.05
+                                fprintf('\n %sqq.png', img_dir)
+                            end
                             
                         end
                     end

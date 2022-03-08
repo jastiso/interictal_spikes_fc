@@ -120,19 +120,12 @@ for r = 1:numel(releases)
                 fprintf('Subj %s\n', subj)
                 load([top_dir, 'processed/release',release, '/', protocol, '/', subj, '/slopes.mat'], 'all_aper', 'all_aperied')
                 load([top_dir, 'processed/release',release, '/', protocol, '/', subj, '/psds.mat'], 'all_psd', 'all_ied')
-                if ~isempty(all_aper)
-                    try
+                if ~isempty(all_aper) && size(all_psd,2) == nFreq
                     group_aper(cnt) = mean(all_aper);
                     group_psd(cnt,:) = mean(all_psd,1);
                     group_iedaper(cnt) = mean(all_aperied);
                     group_iedpsd(cnt,:) = mean(all_ied,1);
                     cnt = cnt + 1;
-                    catch
-                        if ~exist(all_aperied)
-                            %delete([top_dir, 'processed/release',release, '/', protocol, '/', subj, '/psds.mat']);
-                            %delete([top_dir, 'processed/release',release, '/', protocol, '/', subj, '/slopes.mat'])
-                        end
-                    end
                 else
                     %delete([top_dir, 'processed/release',release, '/', protocol, '/', subj, '/psds.mat']);
                     %delete([top_dir, 'processed/release',release, '/', protocol, '/', subj, '/slopes.mat'])
@@ -145,13 +138,20 @@ figure(1); clf
 histogram(group_aper, 10); hold on
 histogram(group_iedaper,10)
 saveas(gca,[top_dir, 'img/slopes.png'], 'png')
+p = permtest(group_aper,group_iedaper)
 
 figure(2); clf
+s_ord = [];
 for i = 1:size(group_psd,1)
     lh1 = plot(linspace(2,70,34),log(group_psd(i,:)), 'color', rgb('slategray')); hold on % freqs taken from get_IRASA_spec function
     lh2 = plot(linspace(2,70,34),log(group_iedpsd(i,:)), 'color', rgb('sandybrown'));
-    lh1.Color = [lh1.Color 0.5];
-    lh2.Color = [lh2.Color 0.5];
+    lh1.Color = [lh1.Color 0.6];
+    lh2.Color = [lh2.Color 0.6];
+    s_ord = [s_ord; repmat(i,nFreq,1)];
 end
 saveas(gca,[top_dir, 'img/psds.png'], 'png')
+ tbl = table([reshape(log(group_psd)',[],1);reshape(log(group_iedpsd)', [], 1)], [repmat({'clean'},numel(group_psd),1); repmat({'ied'},numel(group_psd),1)],...
+     repmat((linspace(2,70,nFreq))',size(group_psd,1)*2,1), [s_ord;s_ord], 'VariableNames', [{'pow'},{'spike'},{'freq'},{'subj'}])
 
+lme = fitlme(tbl,'pow~spike+freq+(1|subj)');
+lme

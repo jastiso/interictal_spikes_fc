@@ -44,7 +44,7 @@ spike_data <- mutate(spike_data, band_measure = paste(Frequency.Band, Measure, s
 
 Now the actual stats - run this cell once per predictor
 ```{r}
-pred = 'bin'# bin or num or spr
+pred = 'spr'# bin or num or spr
 aec_flag = 'aec$' # which aec do you want to EXCLUDE, orth or regular. The carrot mean "starts with", $                      means 'ends with'
 coh_flag = '^coh' # 
 plv_flag = '^plv$'
@@ -336,6 +336,43 @@ cov_wi_stats
 
 ```
 
+Reliability in different etiologies
+```{r}
+pred = 'spr'# bin or num or spr
+et = 'MCD'
+aec_flag = 'aec$' # which aec do you want to EXCLUDE, orth or regular. The carrot mean "starts with", $                      means 'ends with'
+coh_flag = '^coh' # 
+plv_flag = '^plv$'
+
+et_data = read.csv(paste('/Volumes/bassett-data/Jeni/RAM/group_analysis/win_', as.character(win), '/clinical', detector, '.csv', sep=''))
+et_data <- mutate(et_data, band_measure = tolower(paste(Frequency.Band, Measure, sep = '_')))
+
+ts = list()
+ts_all = list()
+
+
+curr_measures = et_data[!grepl(aec_flag, et_data$Measure) & !grepl(coh_flag, et_data$Measure) & !grepl(plv_flag, et_data$Measure), 'band_measure']
+bfc = unique(curr_measures)
+for (m in fc){
+  print(m)
+  curr <- filter(et_data, band_measure == m, Etiology==et)
+  y = unlist(na.omit(curr[paste('str_beta_', pred, sep='')]))
+  stat <- oneSamplePermutationTest(y)
+  ts = c(ts, stat$statistic)
+  curr <- filter(et_data, band_measure == m)
+  y = unlist(na.omit(curr[paste('str_beta_', pred, sep='')]))
+  stat <- oneSamplePermutationTest(y)
+  ts_all = c(ts_all, stat$statistic)
+}
+
+# corrections based on aec or aec_orth, not both
+stats = data.frame(all = unlist(ts_all), t = unlist(ts), df = unlist(df), measure = fc)
+
+cor.test(stats$t,stats$all,method='spearman')
+
+```
+
+
 #Similarity across predictors
 If individuals have large changes to one predictor, to tend to have large changes for others?
 ```{r}
@@ -424,7 +461,7 @@ cov_stats
 Data driven approach: Which variables explain the most variance
 fit grouped lasso regression
 ```{r}
-pred = 'spr'
+pred = 'bin'
 supp_flag = FALSE # are you using main measures, or supplemental measures
 
 all_data = read.csv(paste('/Volumes/bassett-data/Jeni/RAM/group_analysis/win_', as.character(win), '/net_dem_data', detector, '.csv', sep=''))
@@ -440,7 +477,7 @@ all_data[all_data$contacts == '','contacts'] = NaN
 all_data[all_data$Etiology == '','Etiology'] = NaN
 all_data[all_data$locus == '','locus'] = NaN
 vars = c('locus', 'hem', 'race', 'gender', 'age', 'Etiology', 'Lesional','SeizureAge',
-                'contacts','Institution', 'hand','avg')
+                'contacts','Institution', 'hand','rate')
 if (supp_flag){
   # loop through other measures and remove...probably a better way to do this
   for (m in keep_measures){
@@ -465,7 +502,7 @@ for (m in fc){
   curr = na.omit(curr)
   curr = droplevels(curr)
   
-  x = model.matrix(~locus + hem + race + gender + age + Etiology + Lesional + SeizureAge + contacts + Institution + hand + avg, curr)[, -1]
+  x = model.matrix(~locus + hem + race + gender + age + Etiology + Lesional + SeizureAge + contacts + Institution + hand + rate, curr)[, -1]
   groups = c(rep(1,each=nlevels(curr$locus)-1),rep(2,each=nlevels(curr$hem)-1),rep(3,each=nlevels(curr$race)-1),
              rep(4,each=nlevels(curr$gender)-1),5,rep(6,each=nlevels(curr$Etiology)-1),
              rep(7,each=nlevels(curr$Lesional)-1),8,rep(9,each=nlevels(curr$contacts)-1),
@@ -519,7 +556,7 @@ pd = position_dodge(0.5)
 ggplot(data=reg_betas,aes(x=band_measure, y=(beta), color=pred)) + 
   geom_point(size=5, position=pd) + theme_minimal() +
   geom_label(label = reg_betas$names, nudge_x = 0.001, nudge_y = 0.001, check_overlap=T) +
-  scale_color_manual(values=colorRampPalette(brewer.pal(12,'Set3'))(12)) +
+  scale_color_manual(values=colorRampPalette(brewer.pal(12,'Set1'))(12)) +
   theme(axis.text.x = element_text(angle=30))
 ggsave(paste('../img/lasso_', pred, '.eps', sep=''))
 ```

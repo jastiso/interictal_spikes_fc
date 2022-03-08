@@ -97,14 +97,15 @@ for r = 1:numel(releases)
                         fclose(fid);
                         
                         % get interictal contacts (if there are any)
-                        if numel(interictal_cont) > 0
-                            iz_idx = cellfun(@(x) any(strcmp(x, interictal_cont)), ft_data.label);
-                            if sum(iz_idx) > 1
-                                curr_coords = cell2mat(mni_coords(iz_idx));
+                        if numel(soz) > 0
+                            soz_idx = cellfun(@(x) any(strcmp(x, soz)), ft_data.label);
+                            if sum(soz_idx) > 1
+                                curr_coords = cell2mat(mni_coords(soz_idx));
                                 % get distance dist
                                 curr_dist = pdist(curr_coords);
 
-                                x = histogram(curr_dist)
+                                figure(1);
+                                x = histogram(curr_dist);
                                 
                                 % plot/save
                                 iz_dist{cnt} = sum(islocalmax(x.Values)) > 1;
