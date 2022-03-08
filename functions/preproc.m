@@ -310,10 +310,10 @@ for p = 1:numel(protocols)
                     % check that we have enought data, now
                     % that we know how long the data is
                     if posttask
-                        posttask = numel((events(end_idx).eegoffset + 1):header.n_samples) > min_seg;
+                        posttask = numel(((events(end_idx).eegoffset + 1)/header.orig_sample_rate*header.sample_rate):header.n_samples) > min_seg;
                     end
                     if pretask
-                        pretask = numel(1:(events(start_idx).eegoffset - 1)) > min_seg;
+                        pretask = numel(1:((events(start_idx).eegoffset - 1)/header.orig_sample_rate*header.sample_rate)) > min_seg;
                     end
                     
                     if ~(pretask || posttask)
